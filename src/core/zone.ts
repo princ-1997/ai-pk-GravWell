@@ -60,7 +60,7 @@ export function generateZonePath(seed: number, totalTicks: number): Vec2[] {
 export function getZoneRadius(tick: number, totalTicks: number, baseRadius: number): number {
   const progress = tick / totalTicks;
   // Shrink from baseRadius to ~60% of baseRadius over the game
-  const minFactor = 0.6;
+  const minFactor = 0.4;
   const factor = 1 - (1 - minFactor) * progress;
   return baseRadius * factor;
 }

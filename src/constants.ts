@@ -5,7 +5,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   totalTicks: 200,
   playerCount: 1,
   shipsPerPlayer: 3,
-  fuelStart: 30,
+  fuelStart: 20,
   maxThrust: 1,
   conditionMax: 10,
   predictionTicks: 20,
@@ -35,6 +35,13 @@ export const THEME = {
   sunCore: '#FFD700',
   sunGlow: '#FF8C00',
   sunCorona: '#FF6600',
+  // Per-sun color palettes — all within warm yellow/orange/amber color space
+  sunPalettes: [
+    { core: '#FFFBE6', glow: '#FFA500', corona: '#FF6600', outer: '#CC4400' }, // Orange
+    { core: '#FFF8E0', glow: '#FFD700', corona: '#FFAA00', outer: '#CC8800' }, // Gold
+    { core: '#FFF0E0', glow: '#FF8C00', corona: '#FF5500', outer: '#BB3300' }, // Deep amber
+    { core: '#FFFAE8', glow: '#FFCC33', corona: '#FF9922', outer: '#CC7711' }, // Warm yellow
+  ],
   zoneLine: '#FFFFFF',
   zoneFill: 'rgba(255, 255, 255, 0.05)',
 };
