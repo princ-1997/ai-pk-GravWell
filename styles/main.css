@@ -373,3 +373,257 @@ select.field-input {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ====== LLM Materials Tab ====== */
+.materials-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.materials-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+
+.materials-round-selector {
+  display: flex;
+  gap: 4px;
+}
+
+.round-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.round-btn:hover {
+  border-color: var(--gold-dim);
+  color: var(--gold);
+}
+
+.round-btn.active {
+  background: var(--gold);
+  color: var(--bg);
+  border-color: var(--gold);
+}
+
+.materials-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.materials-empty {
+  color: var(--text-dim);
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.materials-record {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.materials-meta {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.materials-type {
+  color: var(--gold);
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.materials-tokens {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.materials-section {
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.materials-section-title {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel-alt);
+}
+
+.materials-pre {
+  margin: 0;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+
+.materials-pre-tall {
+  max-height: 300px;
+}
+
+.materials-pre-code {
+  color: var(--gold-dim);
+}
+
+.materials-note {
+  padding: 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.materials-diag {
+  padding: 10px;
+}
+
+.materials-diag-summary {
+  color: var(--text);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.materials-diag-stats {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+
+.materials-diag-stats strong {
+  color: var(--gold);
+}
+
+.materials-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.materials-table th,
+.materials-table td {
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.materials-table th {
+  color: var(--text-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.materials-table td {
+  color: var(--text);
+}
+
+/* ====== Full Runs Tab ====== */
+.full-runs-layout {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.full-runs-controls {
+  width: 320px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-panel);
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.full-runs-results {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.full-runs-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.full-runs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.full-runs-table th,
+.full-runs-table td {
+  padding: 4px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+
+.full-runs-table th {
+  color: var(--text-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel);
+}
+
+.full-runs-table td {
+  color: var(--text);
+}
+
+.full-runs-table td:first-child,
+.full-runs-table th:first-child {
+  text-align: left;
+}
+
+.full-runs-stats {
+  font-size: 11px;
+}
+
+.fr-stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.fr-stat-label {
+  color: var(--text-dim);
+}
+
+.fr-stat-value {
+  color: var(--gold);
+  font-weight: bold;
+}
+
+.fr-stat-empty {
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 4px 0;
+}
+
+#fr-chart {
+  width: 100%;
+  height: 160px;
+  display: block;
+}
