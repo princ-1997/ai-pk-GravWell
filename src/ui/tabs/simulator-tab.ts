@@ -1,16 +1,10 @@
-import type { SimulationResult } from '../../types';
-import type { AppState, LlmMaterialsRecord, Tab } from '../app';
+import type { Player, RoundResult } from '../../types';
+import type { AppState, Tab } from '../app';
 import { Simulation } from '../../core/simulation';
 import { GameRenderer } from '../../renderer/game-renderer';
-import { callLLM } from '../../llm/api';
-import { buildPrompt } from '../../llm/prompt-builder';
-import { parseDecideCode } from '../../llm/code-parser';
-import { createDecideFunction, BASELINE_ZONE_SEEKER_CODE } from '../../llm/sandbox';
-import { generateDiagnostic } from '../../llm/diagnostic';
-import { IterationEngine, type IterationRecord } from '../../llm/iteration-engine';
+import { MultiPlayerIterationEngine } from '../../llm/multi-player-iteration-engine';
 import { ApiConfig } from '../components/api-config';
 import { CodeEditor } from '../components/code-editor';
-import { IterationPanel } from '../components/iteration-panel';
 import { ReplayControls } from '../components/replay-controls';
 
 export class SimulatorTab implements Tab {
@@ -18,7 +12,7 @@ export class SimulatorTab implements Tab {
   private state: AppState;
   private renderer!: GameRenderer;
   private simulation: Simulation | null = null;
-  private iterationEngine: IterationEngine | null = null;
+  private engine: MultiPlayerIterationEngine | null = null;
 
   // Replay internals
   private replayAnimId = 0;
@@ -27,7 +21,6 @@ export class SimulatorTab implements Tab {
   // Components
   private apiConfig!: ApiConfig;
   private codeEditor!: CodeEditor;
-  private iterationPanel!: IterationPanel;
   private replayControls!: ReplayControls;
 
   constructor(state: AppState) {
@@ -59,12 +52,14 @@ export class SimulatorTab implements Tab {
 
     const rightPanel = this.el.querySelector('#sim-right-panel') as HTMLElement;
 
-    // API Config
+    // 1. API Config with player management
     this.apiConfig = new ApiConfig(rightPanel, {
       onStatusMessage: (html, type) => this.replayControls.showStatus(html, type),
+      onAddPlayer: (player) => this.addPlayer(player),
+      onRemovePlayer: (id) => this.removePlayer(id),
     });
 
-    // Game Config
+    // 2. Game Config
     const gameConfigEl = document.createElement('div');
     gameConfigEl.className = 'panel-section';
     gameConfigEl.innerHTML = `
@@ -73,12 +68,6 @@ export class SimulatorTab implements Tab {
         <label class="field-label">SEED</label>
         <input type="number" class="field-input" id="seed-input" value="${this.state.config.seed}">
       </div>
-      <div class="field-row">
-        <label class="field-label">MODE</label>
-        <select class="field-input" id="mode-select">
-          <option value="single">Single-player fixed seed</option>
-        </select>
-      </div>
     `;
     rightPanel.appendChild(gameConfigEl);
 
@@ -86,35 +75,22 @@ export class SimulatorTab implements Tab {
       const seed = parseInt((gameConfigEl.querySelector('#seed-input') as HTMLInputElement).value) || 9001;
       this.state.config = { ...this.state.config, seed };
       this.initializeSimulation();
+      this.el.querySelector('#stat-seed')!.textContent = String(seed);
     });
 
-    // Code Editor
+    // 3. Code Editor (PLAY / STOP / LOAD BASELINE + code view)
     this.codeEditor = new CodeEditor(rightPanel, {
-      onGenerate: () => this.generateBot(),
+      onPlay: () => this.startBenchmark(),
+      onStop: () => this.stopBenchmark(),
       onLoadBaseline: () => this.loadBaseline(),
-      onApplyEdit: () => this.loadCodeFromEditor(),
+      onPlayerRoundSelect: (playerId, round) => this.selectPlayerCode(playerId, round),
     });
 
-    // Iteration Panel (inside code editor section)
-    this.iterationPanel = new IterationPanel(
-      rightPanel.querySelector('.bot-code-container')! as HTMLElement,
-      {
-        onIterate: () => this.startIteration(),
-        onStop: () => this.stopIteration(),
-      }
-    );
-    // Move iteration panel before the textarea
-    const botCodeContainer = rightPanel.querySelector('.bot-code-container')!;
-    const textarea = botCodeContainer.querySelector('.bot-code')!;
-    const iterationEl = this.iterationPanel['el'];
-    botCodeContainer.insertBefore(iterationEl, textarea);
-
-    // Replay Controls
+    // 4. Replay Controls (round slider + speed + chart + results)
     this.replayControls = new ReplayControls(rightPanel, this.state, {
-      onRun: () => this.runScoreTrial(),
       onPlay: () => this.playReplay(),
       onStop: () => this.stopReplay(),
-      onCopyReport: () => this.copyTrialReport(),
+      onRoundSelect: (round) => this.selectRound(round),
     });
 
     // Setup canvas
@@ -141,231 +117,207 @@ export class SimulatorTab implements Tab {
     this.stopReplay();
   }
 
+  // ====== Player Management ======
+  private addPlayer(player: Player): void {
+    // Add to state if not already there
+    if (!this.state.players.find(p => p.id === player.id)) {
+      this.state.players.push(player);
+    }
+    this.state.config = { ...this.state.config, playerCount: this.state.players.length };
+    this.codeEditor.setPlayers(this.state.players);
+    this.initializeSimulation();
+  }
+
+  private removePlayer(playerId: number): void {
+    this.state.players = this.state.players.filter(p => p.id !== playerId);
+    this.state.config = { ...this.state.config, playerCount: Math.max(1, this.state.players.length) };
+    this.codeEditor.setPlayers(this.state.players);
+    this.initializeSimulation();
+    // Clear old results since player count changed
+    this.state.roundResults = [];
+    this.codeEditor.setRounds(0);
+    this.replayControls.updateRoundSlider(0, 0);
+    this.replayControls.renderScoreChart([], []);
+    this.replayControls.renderPlayerStats([]);
+  }
+
+  private loadBaseline(): void {
+    this.apiConfig.addBaselinePlayer();
+  }
+
   // ====== Simulation ======
   private initializeSimulation(): void {
     this.simulation = new Simulation(this.state.config);
-    this.state.simulationResult = null;
     this.state.replayTicks = [];
     this.state.replayIndex = 0;
     this.renderer.clearTrails();
-    this.replayControls.updateStats(0, [0], '-');
-    this.el.querySelector('#stat-seed')!.textContent = String(this.state.config.seed);
 
     const zone = this.simulation.getZone();
     this.renderer.renderInitial(this.simulation.arena.suns, zone);
-    this.replayControls.renderPlayerStats(null);
+    this.replayControls.updateStats(0, new Array(this.state.config.playerCount).fill(0), '-');
   }
 
-  // ====== Generate Bot ======
-  private async generateBot(): Promise<void> {
-    const apiKey = this.apiConfig.getApiKey();
-    const provider = this.apiConfig.getProvider();
-    const model = this.apiConfig.getModel();
-
-    if (!apiKey) { this.replayControls.showStatus('Please enter an API key first.', 'error'); return; }
-    if (!model) { this.replayControls.showStatus('Please enter a model name.', 'error'); return; }
-
-    if (!this.simulation) this.initializeSimulation();
-
-    this.replayControls.showStatus('<span class="spinner"></span> Generating bot code...', 'info');
-    this.disableButtons(true);
-
-    try {
-      const { system, user } = buildPrompt(
-        this.state.config,
-        this.simulation!.arena.suns,
-        this.simulation!.arena.shipStartPositions,
-        0
-      );
-
-      const response = await callLLM(apiKey, provider, model, system, user);
-      const code = parseDecideCode(response.content);
-
-      this.state.currentBotCode = code;
-      this.state.currentDecide = createDecideFunction(code);
-      this.codeEditor.setCode(code);
-
-      // Store LLM materials
-      this.state.llmMaterials = [{
-        round: 1,
-        type: 'generate',
-        systemPrompt: system,
-        userPrompt: user,
-        rawResponse: response.content,
-        extractedCode: code,
-        diagnostic: null,
-        tokensUsed: { input: response.usage.inputTokens, output: response.usage.outputTokens },
-      }];
-
-      this.replayControls.showStatus(
-        `Bot generated. Tokens: ${response.usage.inputTokens} in / ${response.usage.outputTokens} out.`,
-        'success'
-      );
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      this.replayControls.showStatus(`Error: ${msg}`, 'error');
-    } finally {
-      this.disableButtons(false);
-    }
-  }
-
-  // ====== Iterative Learning ======
-  private async startIteration(): Promise<void> {
-    const apiKey = this.apiConfig.getApiKey();
-    const provider = this.apiConfig.getProvider();
-    const model = this.apiConfig.getModel();
-    const maxRounds = this.iterationPanel.getRounds();
-
-    if (!apiKey) { this.replayControls.showStatus('Please enter an API key first.', 'error'); return; }
-    if (!model) { this.replayControls.showStatus('Please enter a model name.', 'error'); return; }
-
-    if (!this.simulation) this.initializeSimulation();
-
-    this.state.iterationRunning = true;
-    this.state.iterationRecords = [];
-    this.state.llmMaterials = [];
-    this.disableButtons(true);
-    this.iterationPanel.setRunning(true);
-    this.iterationPanel.showProgress('Starting...');
-
-    const scoreHistory: number[] = [];
-
-    this.iterationEngine = new IterationEngine(
-      { maxRounds, noImprovementRounds: 3 },
-      {
-        onRoundStart: (round, total) => {
-          this.replayControls.showStatus(`<span class="spinner"></span> Round ${round}/${total} — calling LLM...`, 'info');
-          this.iterationPanel.showProgress(
-            `Round ${round}/${total}  |  ${scoreHistory.join(' → ')}${scoreHistory.length ? ' → ...' : '...'}`
-          );
-        },
-        onRoundComplete: (record: IterationRecord) => {
-          scoreHistory.push(record.score);
-          this.iterationPanel.showProgress(`Round ${record.round}/${maxRounds}  |  ${scoreHistory.join(' → ')}`);
-
-          // Store LLM materials
-          this.state.llmMaterials.push({
-            round: record.round,
-            type: 'iterate',
-            systemPrompt: record.systemPrompt,
-            userPrompt: record.userPrompt,
-            rawResponse: record.rawResponse,
-            extractedCode: record.code,
-            diagnostic: record.diagnostic,
-            tokensUsed: record.tokensUsed,
-          });
-
-          // Load best code into editor
-          const best = this.state.iterationRecords.length > 0
-            ? this.state.iterationRecords.reduce((b, r) => r.score > b.score ? r : b)
-            : null;
-          if (!best || record.score >= (best?.score ?? -1)) {
-            this.state.currentBotCode = record.code;
-            this.state.currentDecide = createDecideFunction(record.code);
-            this.codeEditor.setCode(record.code);
-          }
-          this.state.iterationRecords.push(record);
-        },
-        onIterationDone: (records, bestRound) => {
-          this.state.iterationRunning = false;
-          this.disableButtons(false);
-          this.iterationPanel.setRunning(false);
-
-          if (records.length === 0) {
-            this.replayControls.showStatus('Iteration stopped with no results.', 'info');
-            return;
-          }
-
-          const best = records.reduce((b, r) => r.score > b.score ? r : b);
-          this.state.currentBotCode = best.code;
-          this.state.currentDecide = createDecideFunction(best.code);
-          this.codeEditor.setCode(best.code);
-
-          const totalTokens = records.reduce((s, r) => s + r.tokensUsed.input + r.tokensUsed.output, 0);
-          this.replayControls.showStatus(
-            `Iteration complete. Best score: ${best.score} (round ${bestRound}). Scores: ${records.map(r => r.score).join(' → ')}. Tokens: ${totalTokens}.`,
-            'success'
-          );
-          this.iterationPanel.showProgress(
-            `Done — ${records.length} rounds  |  ${records.map(r => r.score).join(' → ')}  |  Best: ${best.score} (R${bestRound})`
-          );
-        },
-        onError: (round, msg) => {
-          this.state.iterationRunning = false;
-          this.disableButtons(false);
-          this.iterationPanel.setRunning(false);
-          this.replayControls.showStatus(`Iteration error at round ${round}: ${msg}`, 'error');
-        },
-      }
-    );
-
-    await this.iterationEngine.run(this.state.config, provider, apiKey, model);
-  }
-
-  private stopIteration(): void {
-    if (this.iterationEngine) {
-      this.iterationEngine.stop();
-      this.state.iterationRunning = false;
-      this.disableButtons(false);
-      this.iterationPanel.setRunning(false);
-      this.replayControls.showStatus('Iteration stopped by user.', 'info');
-    }
-  }
-
-  // ====== Run Simulation ======
-  private runScoreTrial(): void {
-    if (!this.state.currentDecide) {
-      this.replayControls.showStatus('No bot loaded. Generate a bot or load baseline first.', 'error');
+  // ====== Benchmark (Multi-Player Iteration) ======
+  private async startBenchmark(): Promise<void> {
+    if (this.state.players.length === 0) {
+      this.replayControls.showStatus('Add at least one player first.', 'error');
       return;
     }
 
-    this.simulation = new Simulation(this.state.config);
-    this.renderer.clearTrails();
-    this.replayControls.showStatus('<span class="spinner"></span> Running simulation...', 'info');
-
-    const result = this.simulation.runToCompletion([this.state.currentDecide]);
-    this.state.simulationResult = result;
-    this.state.replayTicks = result.ticks;
-    this.state.replayIndex = 0;
-
-    this.state.diagnostic = generateDiagnostic(result, this.state.config);
-
-    const winner = this.state.config.playerCount === 1
-      ? 'P1'
-      : `P${result.finalScores.indexOf(Math.max(...result.finalScores)) + 1}`;
-    this.replayControls.updateStats(this.state.config.totalTicks, result.finalScores, winner);
-    this.replayControls.renderPlayerStats(result);
-
-    this.replayControls.showStatus(
-      `Run complete. Score: ${result.finalScores[0]}. Click PLAY REPLAY to watch.`,
-      'success'
-    );
-
-    // Show final frame with trails
-    this.renderFinalFrame(result);
-  }
-
-  private renderFinalFrame(result: SimulationResult): void {
-    if (result.ticks.length === 0) return;
-    this.renderer.clearTrails();
-    for (let i = 0; i < result.ticks.length; i++) {
-      for (const shipData of result.ticks[i].ships) {
-        if (!shipData.alive) continue;
-        if (!this.renderer.trails[shipData.id]) this.renderer.trails[shipData.id] = [];
-        const { cx, cy } = this.renderer.gameToCanvas(shipData.x, shipData.y);
-        this.renderer.trails[shipData.id].push({ x: cx, y: cy });
-        if (this.renderer.trails[shipData.id].length > 100) {
-          this.renderer.trails[shipData.id].shift();
-        }
+    // Validate LLM players have keys
+    const llmPlayers = this.state.players.filter(p => p.provider !== null);
+    for (const p of llmPlayers) {
+      if (!p.apiKey) {
+        this.replayControls.showStatus(`Player ${p.id + 1} (${p.label}) has no API key.`, 'error');
+        return;
       }
     }
-    this.renderer.renderFrame(result.ticks[result.ticks.length - 1], this.simulation!.arena.suns);
+
+    this.state.benchmarkRunning = true;
+    this.state.roundResults = [];
+    this.state.config = { ...this.state.config, playerCount: this.state.players.length };
+    this.codeEditor.setRunning(true);
+    this.codeEditor.setRounds(0);
+    this.replayControls.updateRoundSlider(0, 0);
+
+    // Sort players by id for consistent ordering
+    const players = [...this.state.players].sort((a, b) => a.id - b.id);
+
+    this.engine = new MultiPlayerIterationEngine({
+      onRoundStart: (round, total) => {
+        this.codeEditor.showProgress(`Round ${round + 1}/${total} — calling LLMs...`);
+        this.replayControls.showStatus(
+          `<span class="spinner"></span> Round ${round + 1}/${total}`,
+          'info'
+        );
+      },
+      onRoundComplete: (result: RoundResult) => {
+        this.state.roundResults.push(result);
+        const roundIdx = this.state.roundResults.length - 1;
+
+        // Update progress
+        const scoreStr = players.map(p => {
+          const pd = result.players.find(pd => pd.playerId === p.id);
+          return `P${p.id + 1}:${pd?.score ?? 0}`;
+        }).join(' ');
+        this.codeEditor.showProgress(
+          `Round ${roundIdx + 1}/20 done | ${scoreStr}`
+        );
+
+        // Update round slider to latest
+        this.replayControls.updateRoundSlider(this.state.roundResults.length, roundIdx);
+        this.codeEditor.setRounds(this.state.roundResults.length);
+        this.codeEditor.selectRound(roundIdx);
+
+        // Update chart
+        this.replayControls.renderScoreChart(this.state.roundResults, players);
+
+        // Show first frame of latest round
+        this.selectRound(roundIdx);
+
+        // Show code for first player of this round
+        this.selectPlayerCode(this.state.selectedPlayerId, roundIdx);
+
+        // Update results
+        this.replayControls.renderPlayerStats(players, result);
+      },
+      onAllComplete: (results) => {
+        this.state.benchmarkRunning = false;
+        this.codeEditor.setRunning(false);
+
+        if (results.length === 0) {
+          this.replayControls.showStatus('Benchmark stopped with no results.', 'info');
+          return;
+        }
+
+        // Find best round per player
+        const summary = players.map(p => {
+          let bestScore = -1;
+          let bestRound = 0;
+          for (const rr of results) {
+            const pd = rr.players.find(pd => pd.playerId === p.id);
+            if (pd && pd.score > bestScore) {
+              bestScore = pd.score;
+              bestRound = rr.round;
+            }
+          }
+          return `P${p.id + 1}(${p.label}): best ${bestScore} @ R${bestRound + 1}`;
+        }).join(' | ');
+
+        this.codeEditor.showProgress(`Done — ${results.length} rounds | ${summary}`);
+        this.replayControls.showStatus(
+          `Benchmark complete. ${results.length} rounds.`,
+          'success'
+        );
+      },
+      onError: (round, playerId, msg) => {
+        this.replayControls.showStatus(
+          `R${round + 1} P${playerId + 1} error: ${msg}`,
+          'error'
+        );
+      },
+      onPlayerLLMStart: () => {},
+      onPlayerLLMComplete: () => {},
+    });
+
+    await this.engine.run(this.state.config, players);
+  }
+
+  private stopBenchmark(): void {
+    if (this.engine) {
+      this.engine.stop();
+      this.state.benchmarkRunning = false;
+      this.codeEditor.setRunning(false);
+      this.replayControls.showStatus('Benchmark stopped by user.', 'info');
+    }
+  }
+
+  // ====== Round / Code Selection ======
+  private selectRound(round: number): void {
+    if (round < 0 || round >= this.state.roundResults.length) return;
+
+    this.state.selectedRound = round;
+    const roundResult = this.state.roundResults[round];
+
+    // Load this round's ticks for replay
+    this.state.replayTicks = roundResult.ticks;
+    this.state.replayIndex = 0;
+    this.stopReplay();
+    this.renderer.clearTrails();
+
+    // Create simulation for arena reference (suns)
+    this.simulation = new Simulation(this.state.config);
+
+    // Show first frame
+    if (roundResult.ticks.length > 0) {
+      this.renderer.renderFrame(roundResult.ticks[0], this.simulation.arena.suns);
+      this.replayControls.updateStats(0, roundResult.ticks[0].scores, '-');
+    }
+
+    // Update results panel
+    const players = [...this.state.players].sort((a, b) => a.id - b.id);
+    this.replayControls.renderPlayerStats(players, roundResult);
+    this.replayControls.updateRoundSlider(this.state.roundResults.length, round);
+  }
+
+  private selectPlayerCode(playerId: number, round: number): void {
+    this.state.selectedPlayerId = playerId;
+    this.state.selectedRound = round;
+
+    if (round < 0 || round >= this.state.roundResults.length) {
+      this.codeEditor.setCode('');
+      return;
+    }
+
+    const roundResult = this.state.roundResults[round];
+    const pd = roundResult.players.find(p => p.playerId === playerId);
+    this.codeEditor.setCode(pd?.code || '// No code for this player/round');
   }
 
   // ====== Replay ======
   private playReplay(): void {
     if (this.state.replayTicks.length === 0) {
-      this.replayControls.showStatus('No replay data. Run a simulation first.', 'error');
+      this.replayControls.showStatus('No replay data. Run a benchmark first.', 'error');
       return;
     }
 
@@ -374,6 +326,10 @@ export class SimulatorTab implements Tab {
     this.state.replayPlaying = true;
     this.renderer.clearTrails();
     this.lastFrameTime = performance.now();
+
+    if (!this.simulation) {
+      this.simulation = new Simulation(this.state.config);
+    }
 
     const animate = (now: number): void => {
       if (!this.state.replayPlaying) return;
@@ -385,21 +341,20 @@ export class SimulatorTab implements Tab {
         this.lastFrameTime = now;
 
         if (this.state.replayIndex < this.state.replayTicks.length) {
-          this.renderer.renderFrame(this.state.replayTicks[this.state.replayIndex], this.simulation!.arena.suns);
-          this.replayControls.updateStats(
-            this.state.replayTicks[this.state.replayIndex].tick,
-            this.state.replayTicks[this.state.replayIndex].scores,
-            '-'
-          );
+          const tick = this.state.replayTicks[this.state.replayIndex];
+          this.renderer.renderFrame(tick, this.simulation!.arena.suns);
+          this.replayControls.updateStats(tick.tick, tick.scores, '-');
           this.state.replayIndex++;
         } else {
           this.state.replayPlaying = false;
-          if (this.state.simulationResult) {
-            const winner = this.state.config.playerCount === 1
-              ? 'P1'
-              : `P${this.state.simulationResult.finalScores.indexOf(Math.max(...this.state.simulationResult.finalScores)) + 1}`;
-            this.replayControls.updateStats(this.state.config.totalTicks, this.state.simulationResult.finalScores, winner);
-          }
+          const lastTick = this.state.replayTicks[this.state.replayTicks.length - 1];
+          const maxScore = Math.max(...lastTick.scores);
+          const winnerIdx = lastTick.scores.indexOf(maxScore);
+          this.replayControls.updateStats(
+            this.state.config.totalTicks,
+            lastTick.scores,
+            `P${winnerIdx + 1}`
+          );
           this.replayControls.showStatus('Replay complete.', 'info');
           return;
         }
@@ -420,49 +375,7 @@ export class SimulatorTab implements Tab {
     }
   }
 
-  // ====== Baseline & Code Loading ======
-  private loadBaseline(): void {
-    this.state.currentBotCode = BASELINE_ZONE_SEEKER_CODE;
-    this.state.currentDecide = createDecideFunction(BASELINE_ZONE_SEEKER_CODE);
-    this.codeEditor.setCode(BASELINE_ZONE_SEEKER_CODE);
-    this.replayControls.showStatus('Baseline zone seeker bot loaded.', 'success');
-  }
-
-  private loadCodeFromEditor(): void {
-    const code = this.codeEditor.getCode();
-    if (!code.trim()) {
-      this.replayControls.showStatus('Bot code is empty.', 'error');
-      return;
-    }
-    try {
-      this.state.currentBotCode = code;
-      this.state.currentDecide = createDecideFunction(code);
-      this.replayControls.showStatus('Bot code loaded from editor.', 'success');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      this.replayControls.showStatus(`Failed to parse code: ${msg}`, 'error');
-    }
-  }
-
-  private copyTrialReport(): void {
-    if (!this.state.diagnostic) {
-      this.replayControls.showStatus('No trial report available. Run a simulation first.', 'error');
-      return;
-    }
-    const text = JSON.stringify(this.state.diagnostic, null, 2);
-    navigator.clipboard.writeText(text).then(() => {
-      this.replayControls.showStatus('Trial report copied to clipboard.', 'success');
-    });
-  }
-
   // ====== Helpers ======
-  private disableButtons(disabled: boolean): void {
-    this.codeEditor.setGenerateDisabled(disabled);
-    this.iterationPanel.setIterateDisabled(disabled);
-    this.replayControls.setRunDisabled(disabled);
-    this.replayControls.setPlayDisabled(disabled);
-  }
-
   private renderCurrentState(): void {
     if (!this.simulation) return;
     if (this.state.replayTicks.length > 0 && this.state.replayIndex > 0) {

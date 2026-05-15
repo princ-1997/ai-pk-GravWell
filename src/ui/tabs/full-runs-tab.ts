@@ -1,5 +1,6 @@
 import type { AppState, Tab } from '../app';
 import { MultiSeedRunner, type MultiSeedResult, type MultiSeedSummary } from '../../modes/multi-seed-runner';
+import { createDecideFunction } from '../../llm/sandbox';
 
 export class FullRunsTab implements Tab {
   el: HTMLElement;
@@ -91,9 +92,29 @@ export class FullRunsTab implements Tab {
 
   private lastSummary: MultiSeedSummary | null = null;
 
+  private getBestDecide(): ReturnType<typeof createDecideFunction> | null {
+    const results = this.state.roundResults;
+    if (results.length === 0 || this.state.players.length === 0) return null;
+
+    // Use the first player's best-scoring code
+    const player = this.state.players[0];
+    let bestCode = '';
+    let bestScore = -1;
+    for (const rr of results) {
+      const pd = rr.players.find(p => p.playerId === player.id);
+      if (pd && pd.score > bestScore) {
+        bestScore = pd.score;
+        bestCode = pd.code;
+      }
+    }
+    if (!bestCode) return null;
+    return createDecideFunction(bestCode);
+  }
+
   private async startRun(): Promise<void> {
-    if (!this.state.currentDecide) {
-      this.progressEl.innerHTML = `<span style="color: var(--red);">No bot loaded. Go to Simulator tab and generate or load a bot first.</span>`;
+    const decide = this.getBestDecide();
+    if (!decide) {
+      this.progressEl.innerHTML = `<span style="color: var(--red);">No bot available. Run a benchmark in the Simulator tab first.</span>`;
       return;
     }
 
@@ -115,7 +136,7 @@ export class FullRunsTab implements Tab {
     await this.runner.run(
       this.state.config,
       seeds,
-      this.state.currentDecide,
+      decide,
       {
         onSeedComplete: (result, index, total) => {
           this.progressEl.textContent = `Seed ${result.seed} complete — ${index + 1}/${total}`;

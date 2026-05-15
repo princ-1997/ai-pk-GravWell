@@ -16,8 +16,8 @@ A web-based LLM benchmark game. AI models write JavaScript `decide(ctx)` functio
 ```
 src/
 ├── main.ts              # Bootstrap only (~12 lines): creates App, registers tabs
-├── types.ts             # All shared interfaces (Ship, Sun, Zone, Vec2, etc.)
-├── constants.ts         # Game defaults, colors, theme tokens
+├── types.ts             # All shared interfaces (Ship, Sun, Zone, Vec2, Player, RoundResult, etc.)
+├── constants.ts         # Game defaults, colors, theme tokens, MAX_PLAYERS
 ├── core/                # Pure simulation engine (NO DOM, NO Canvas)
 │   ├── simulation.ts    # Game loop: Simulation class with tick() and runToCompletion()
 │   ├── physics.ts       # Verlet integration, gravity, collision detection
@@ -29,21 +29,21 @@ src/
 │   ├── api.ts           # OpenRouter / Anthropic / OpenAI / DeepSeek API client
 │   ├── prompt-builder.ts # Builds the system+user prompt with game rules
 │   ├── improvement-prompt.ts # Improvement prompt for iteration rounds 2+
-│   ├── iteration-engine.ts   # Multi-round iterative learning engine
+│   ├── multi-player-iteration-engine.ts # 20-round multi-player benchmark engine
+│   ├── iteration-engine.ts   # Legacy single-player iteration engine
 │   ├── code-parser.ts   # Extracts decide() from LLM response text
 │   ├── sandbox.ts       # new Function() sandbox + baseline bot code
-│   └── diagnostic.ts    # Post-run diagnostic report generation
+│   └── diagnostic.ts    # Post-run diagnostic report (whole-game + per-player)
 ├── ui/                  # Modular UI layer
 │   ├── app.ts           # AppState interface, App class (tab routing, state)
 │   ├── tabs/
-│   │   ├── simulator-tab.ts      # Simulator: canvas + all business logic
-│   │   ├── llm-materials-tab.ts  # LLM Materials: prompt/response/diagnostic
+│   │   ├── simulator-tab.ts      # Simulator: multi-player benchmark orchestration
+│   │   ├── llm-materials-tab.ts  # LLM Materials: per-player per-round prompt/response
 │   │   └── full-runs-tab.ts      # Full Runs: multi-seed batch runner + chart
 │   └── components/
-│       ├── api-config.ts         # API configuration (provider/key/model)
-│       ├── code-editor.ts        # Bot code textarea + action buttons
-│       ├── iteration-panel.ts    # Iterate/stop + rounds + progress
-│       └── replay-controls.ts    # Run/play/stop + speed + status + results
+│       ├── api-config.ts         # API config + ADD PLAYER + player roster
+│       ├── code-editor.ts        # PLAY/STOP benchmark + player/round code viewer
+│       └── replay-controls.ts    # Round slider + speed + score chart + results
 ├── modes/               # Game mode orchestrators
 │   └── multi-seed-runner.ts # Batch execution across multiple seeds
 ├── renderer/            # Canvas rendering (consumes TickRecord[])
@@ -65,9 +65,11 @@ src/
 
 3. **LLM code runs via `new Function()`** — Not a Web Worker yet (MVP). The ctx object is a snapshot copy so decide() can't mutate game state. Errors are caught and return `{x:0, y:0}`.
 
-4. **Replay from stored data** — Replays use `TickRecord[]` stored after simulation, not re-simulation.
+4. **Replay from stored data** — Replays use `TickRecord[]` stored after simulation, not re-simulation. Each of the 20 iteration rounds stores its full `TickRecord[]` for per-round replay.
 
 5. **Modular UI** — `main.ts` is bootstrap only. Each tab is a class implementing `Tab` interface with `onActivate()`/`onDeactivate()` lifecycle. Components are pure UI (no business logic) with callback pattern. `AppState` is a plain mutable object passed by reference — no reactivity framework.
+
+6. **Multi-player benchmark flow** — Users add AI models as "Players" via ADD PLAYER (up to 4). Clicking PLAY runs 20 rounds: each round all players call LLM in parallel, then compete in the same simulation. Per-player diagnostics feed back to each model's improvement prompt. A round slider lets users replay any round's trajectory. Score progression chart shows learning curves.
 
 ## Core Physics
 
@@ -96,17 +98,16 @@ npx tsc --noEmit # Type check only
 Edit `src/core/physics.ts`. The formulas are in `calculateGravity()` and `verletStep()`. Constants live in `src/constants.ts` (`DEFAULT_CONFIG`).
 
 ### Adding a new LLM provider
-Add a new function in `src/llm/api.ts` following the pattern of `callOpenRouter()`. Update `ApiProvider` type and the `callLLM()` switch. Add the option to the provider dropdown in `src/ui/components/api-config.ts`.
+Add a new function in `src/llm/api.ts` following the pattern of `callOpenRouter()`. Update `ApiProvider` type in `src/types.ts` and the `callLLM()` switch in `api.ts`. Add the option to the provider dropdown in `src/ui/components/api-config.ts`.
 
 ### Changing the prompt
 Edit `src/llm/prompt-builder.ts`. The prompt is a template literal that includes seed-specific arena data.
 
 ## Not Yet Implemented (Planned)
 
-- Battle Royale mode (4 players)
-- PVP mode with Elo ratings
+- IndexedDB persistence for benchmark results
 - Leaderboard with 100-seed averaging
-- IndexedDB persistence
+- PVP mode with Elo ratings
 - Web Worker sandbox for decide() execution
 
 See `ROADMAP.md` for the full phased development plan (Phase 0-7).

@@ -1,56 +1,38 @@
-import type { DecideFunction, GameConfig, SimulationResult, TickRecord } from '../types';
-import type { DiagnosticReport } from '../llm/diagnostic';
-import type { IterationRecord } from '../llm/iteration-engine';
+import type { GameConfig, Player, RoundResult, TickRecord } from '../types';
 import { DEFAULT_CONFIG } from '../constants';
-
-// ====== LLM Materials Record ======
-export interface LlmMaterialsRecord {
-  round: number;
-  type: 'generate' | 'iterate';
-  systemPrompt: string;
-  userPrompt: string;
-  rawResponse: string;
-  extractedCode: string;
-  diagnostic: DiagnosticReport | null;
-  tokensUsed: { input: number; output: number };
-}
 
 // ====== App State ======
 export interface AppState {
   config: GameConfig;
-  currentBotCode: string;
-  currentDecide: DecideFunction | null;
-  simulationResult: SimulationResult | null;
-  diagnostic: DiagnosticReport | null;
+
+  // Players
+  players: Player[];
+
+  // Benchmark
+  roundResults: RoundResult[];
+  benchmarkRunning: boolean;
+  selectedRound: number;       // 0-indexed
+  selectedPlayerId: number;
 
   // Replay
   replayTicks: TickRecord[];
   replayIndex: number;
   replayPlaying: boolean;
   replaySpeed: number;
-
-  // Iteration
-  iterationRecords: IterationRecord[];
-  iterationRunning: boolean;
-
-  // LLM Materials
-  llmMaterials: LlmMaterialsRecord[];
 }
 
 export function createAppState(): AppState {
   return {
     config: { ...DEFAULT_CONFIG },
-    currentBotCode: '',
-    currentDecide: null,
-    simulationResult: null,
-    diagnostic: null,
+    players: [],
+    roundResults: [],
+    benchmarkRunning: false,
+    selectedRound: 0,
+    selectedPlayerId: 0,
     replayTicks: [],
     replayIndex: 0,
     replayPlaying: false,
     replaySpeed: 1,
-    iterationRecords: [],
-    iterationRunning: false,
-    llmMaterials: [],
   };
 }
 

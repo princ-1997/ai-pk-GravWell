@@ -374,6 +374,126 @@ select.field-input {
   to { transform: rotate(360deg); }
 }
 
+/* ====== Player Roster ====== */
+.player-roster {
+  margin-top: 8px;
+}
+
+.roster-empty {
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 4px 0;
+}
+
+.player-roster-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 11px;
+}
+
+.player-roster-row .player-label {
+  color: var(--text);
+  font-weight: bold;
+  min-width: 24px;
+}
+
+.player-roster-row .player-model {
+  flex: 1;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-roster-row .player-provider {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.btn-remove {
+  background: none;
+  border: none;
+  color: var(--red);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  font-family: inherit;
+  line-height: 1;
+}
+
+.btn-remove:hover {
+  color: #FF6666;
+}
+
+/* ====== Player Selector (Code Editor) ====== */
+.player-selector {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.player-btn {
+  background: transparent;
+  border: 2px solid var(--border);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 10px;
+  padding: 3px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.player-btn:hover {
+  color: var(--text);
+}
+
+.player-btn.active {
+  color: var(--text);
+}
+
+.player-btn .player-dot {
+  width: 8px;
+  height: 8px;
+}
+
+/* ====== Round Slider ====== */
+.round-slider {
+  flex: 1;
+  accent-color: var(--gold);
+}
+
+.round-label {
+  color: var(--gold);
+  font-size: 11px;
+  min-width: 20px;
+  text-align: right;
+}
+
+/* ====== Score Chart ====== */
+.score-chart {
+  width: 100%;
+  height: 120px;
+  display: block;
+}
+
+/* ====== Round Selector Row ====== */
+.round-selector-row {
+  display: flex;
+  align-items: center;
+}
+
+/* ====== Materials Player Selector ====== */
+.materials-player-selector {
+  display: flex;
+  gap: 4px;
+}
+
 /* ====== LLM Materials Tab ====== */
 .materials-layout {
   display: flex;

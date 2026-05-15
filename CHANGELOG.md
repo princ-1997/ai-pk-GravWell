@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.5.0] - 2026-05-16
+
+### Added
+- **多玩家基准测试系统** — 游戏流程从单玩家工具重构为多模型竞技基准测试
+- **ADD PLAYER** — 替代原 SAVE 按钮，注册 AI 模型为玩家并分配颜色（蓝/红/绿/黄），最多 4 个
+- **玩家名册** — 显示已注册玩家的颜色、模型名、Provider，支持删除，持久化到 localStorage
+- **防重复机制** — 相同 Provider + Model 组合不会重复添加
+- **MultiPlayerIterationEngine** (`src/llm/multi-player-iteration-engine.ts`) — 20 轮固定迭代，每轮所有玩家并行调用 LLM → 共享模拟 → 逐玩家诊断反馈
+- **逐轮回放** — 轮次滑块（Round 1-20）选择任意轮次查看轨迹，默认显示第一帧，点击播放才动
+- **分数折线图** — Canvas 实时绘制各玩家的学习曲线（X=轮次，Y=分数），每轮完成后更新
+- **逐玩家诊断** (`generatePlayerDiagnostic`) — 按 playerId 过滤船只统计，为每个模型生成独立的改进反馈
+- **改进提示词多玩家意识** — 告知 LLM 正在与其他 AI 竞争，提供己方船只 ID 前缀
+- **LLM Materials 标签页** — 新增玩家选择器 + 轮次选择器，支持按玩家 × 轮次浏览
+- **LOAD BASELINE** — 添加内置基线机器人作为参照玩家（不调用 LLM）
+- `Player`, `PlayerRoundData`, `RoundResult` 类型定义 (`src/types.ts`)
+- `ApiProvider` 类型移至 `src/types.ts` 统一管理
+- `MAX_PLAYERS = 4` 常量 (`src/constants.ts`)
+
+### Removed
+- GENERATE BOT 按钮（被 PLAY 基准测试取代）
+- ITERATE 按钮 + 轮次选择器（固定 20 轮）
+- RUN TRIAL 按钮（模拟在迭代中自动执行）
+- `iteration-panel.ts` 组件（功能合并到 code-editor）
+- AppState 中的 `currentBotCode`, `currentDecide`, `diagnostic`, `iterationRecords`, `iterationRunning`, `llmMaterials` 字段
+
+### Changed
+- PLAY 按钮含义从"播放回放"变为"启动基准测试"，回放功能移至 Replay 区域的 PLAY 按钮
+- 代码框变为只读，通过玩家+轮次选择器浏览各模型各轮的代码
+- Full Runs 标签页适配新 AppState，使用第一个玩家的最佳代码运行批量测试
+
 ## [0.4.0] - 2026-05-15
 
 ### Added

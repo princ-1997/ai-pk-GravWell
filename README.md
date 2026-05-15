@@ -37,32 +37,23 @@ npm run dev
 
 打开 http://localhost:5173
 
-### 不用 API Key 体验
+### 快速体验（无需 API Key）
 
-1. 点击 **LOAD BASELINE** 加载内置基线机器人
-2. 点击 **RUN TRIAL** 运行模拟
-3. 点击 **PLAY** 观看回放
+1. 点击 **LOAD BASELINE** 添加内置基线机器人作为玩家
+2. 点击 **PLAY** 启动基准测试（基线玩家会跑满 20 轮）
+3. 用轮次滑块切换不同轮次，点击 **PLAY** 观看回放
 
-### 用 LLM 生成机器人
+### 多模型基准对比
 
-1. 选择 Provider：
-   - **OpenRouter** — 支持所有主流模型
-   - **Anthropic** — 直接调用 Claude
-   - **OpenAI** — 直接调用 GPT
-   - **DeepSeek** — 直接调用 DeepSeek（`deepseek-chat`、`deepseek-v4-flash`、`deepseek-v4-pro` 等）
-2. 填入对应的 API Key
-3. 填写模型名称（如 `anthropic/claude-sonnet-4`、`deepseek-v4-flash`）
-4. 点击 **GENERATE BOT** 一次性生成代码，或点击 **ITERATE** 启动多轮迭代学习
-5. 点击 **RUN TRIAL** 运行
-6. 点击 **PLAY** 观看 AI 驾驶飞船
-
-### 多轮迭代学习
-
-1. 配置好 API Key 和模型
-2. 选择轮数（3 / 5 / 10 轮）
-3. 点击 **ITERATE** — 引擎自动循环：生成 → 运行 → 诊断 → 改进
-4. 实时查看每轮得分变化：`Round 2/5  |  34 → 67 → ...`
-5. 完成后最佳代码自动加载到编辑器
+1. 选择 Provider（OpenRouter / Anthropic / OpenAI / DeepSeek）
+2. 填入 API Key 和模型名称
+3. 点击 **ADD PLAYER** — 该模型注册为一个玩家，显示分配的颜色
+4. 重复 1-3 添加更多模型（最多 4 个玩家）
+5. 点击 **PLAY** — 启动 20 轮迭代基准测试
+   - 每轮：所有玩家并行调用 LLM → 在同一模拟中竞技 → 各自获取诊断反馈
+   - 分数折线图实时展示各模型的学习曲线
+6. 用**轮次滑块**切换查看第 1 轮（初始表现）到第 20 轮（最终进化结果）
+7. 点击 **PLAY** 播放选中轮次的动画回放
 
 ## LLM 如何控制飞船
 
@@ -94,11 +85,11 @@ src/
 ├── main.ts      # 应用入口（bootstrap）
 ├── core/        # 纯物理模拟引擎（无 DOM）
 ├── renderer/    # Canvas 渲染（恒星光晕、飞船轨迹、爆炸粒子）
-├── llm/         # LLM API 集成 + 迭代学习引擎
+├── llm/         # LLM API 集成 + 多玩家迭代引擎
 ├── ui/          # 模块化 UI 层
 │   ├── app.ts                 # AppState + App 类（tab 路由）
 │   ├── tabs/                  # 标签页：Simulator / LLM Materials / Full Runs
-│   └── components/            # UI 组件：API 配置 / 代码编辑器 / 迭代面板 / 回放控制
+│   └── components/            # UI 组件：玩家管理 / 代码查看器 / 回放控制
 ├── modes/       # 游戏模式编排器（多种子批量运行等）
 └── utils/       # 向量数学工具
 ```
@@ -113,14 +104,16 @@ src/
 - [x] 回放系统 + 速度控制
 - [x] 内置基线机器人
 - [x] 诊断报告
-- [x] 多轮迭代学习系统（ITERATE 按钮 + 实时进度 + 自动加载最佳代码）
+- [x] 多轮迭代学习系统
 - [x] UI 模块化重构（main.ts 620→12 行，拆分为组件 + 标签页）
 - [x] LLM Materials 标签页（完整 prompt/response/diagnostic 查看器）
 - [x] Full Runs 标签页（多种子批量运行 + 统计 + 柱状图）
-- [ ] 4 人大逃杀模式
+- [x] **多玩家基准测试**（ADD PLAYER 注册模型 → 20 轮迭代竞技 → 学习曲线对比）
+- [x] 逐轮回放（轮次滑块 + 分数折线图）
+- [x] 玩家管理持久化（localStorage）
 - [ ] PVP 模式 + Elo 排名
 - [ ] 排行榜 + 100 种子平均
-- [ ] 数据库持久化
+- [ ] 数据库持久化（IndexedDB）
 
 ## 灵感来源
 

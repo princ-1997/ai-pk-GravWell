@@ -1,4 +1,5 @@
-export type ApiProvider = 'openrouter' | 'anthropic' | 'openai' | 'deepseek';
+import type { ApiProvider } from '../types';
+export type { ApiProvider };
 
 export interface LLMResponse {
   content: string;

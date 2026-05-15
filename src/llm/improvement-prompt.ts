@@ -19,6 +19,8 @@ export function buildImprovementPrompt(
   }).join('\n');
 
   const system = `You are improving a Gravwell GPT bot. This is improvement round ${round}.
+You are competing against other AI players in the same simulation. Your ships have IDs starting with "${diagnostic.perShip[0]?.id.substring(0, 2) || 'P1'}".
+Other ships visible in ctx.otherShips belong to opponents — avoid colliding but focus on maximizing YOUR zone time.
 
 Previous score: ${diagnostic.positiveScore} / ~${maxPossible} possible
 ${diagnostic.summary}
@@ -28,7 +30,6 @@ ${perShipLines}
 
 Fuel analysis:
   total_fuel_used=${diagnostic.totalFuelUsed.toFixed(1)}, avg_per_ship=${diagnostic.avgFuelPerShip.toFixed(1)}
-  (each ship starts with ${diagnostic.totalFuelUsed > 0 ? Math.round((diagnostic.totalFuelUsed / diagnostic.shipsAlive + (diagnostic.shipsCrashed > 0 ? diagnostic.totalFuelUsed / (diagnostic.shipsAlive + diagnostic.shipsCrashed) : 0))) : 'N/A'} fuel — use it wisely over 200 ticks)
 
 Focus on:
 - Ships that crashed: fix sun avoidance near those tick numbers

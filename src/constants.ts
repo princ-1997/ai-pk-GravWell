@@ -16,6 +16,8 @@ export const DEFAULT_CONFIG: GameConfig = {
   zoneBaseRadius: 10,
 };
 
+export const MAX_PLAYERS = 4;
+
 export const PLAYER_COLORS = [
   '#4488FF', // P1 - blue
   '#FF4444', // P2 - red

@@ -134,3 +134,33 @@ export interface BotEntry {
   code: string;
   decideFunction: DecideFunction | null;
 }
+
+// ====== API Provider ======
+export type ApiProvider = 'openrouter' | 'anthropic' | 'openai' | 'deepseek';
+
+// ====== Multi-Player Benchmark Types ======
+export interface Player {
+  id: number;                    // 0-3
+  provider: ApiProvider | null;  // null = baseline bot
+  apiKey: string;
+  model: string;
+  color: string;                 // from PLAYER_COLORS[id]
+  label: string;                 // display name
+}
+
+export interface PlayerRoundData {
+  playerId: number;
+  code: string;
+  score: number;
+  diagnostic: import('./llm/diagnostic').DiagnosticReport;
+  tokensUsed: { input: number; output: number };
+  systemPrompt: string;
+  userPrompt: string;
+  rawResponse: string;
+}
+
+export interface RoundResult {
+  round: number;
+  ticks: TickRecord[];           // Shared multi-player replay
+  players: PlayerRoundData[];
+}

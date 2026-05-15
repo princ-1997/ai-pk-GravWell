@@ -71,3 +71,55 @@ export function generateDiagnostic(
     summary,
   };
 }
+
+/**
+ * Generate a diagnostic report for a specific player from multi-player simulation results.
+ */
+export function generatePlayerDiagnostic(
+  result: SimulationResult,
+  config: GameConfig,
+  playerId: number
+): DiagnosticReport {
+  const prefix = `P${playerId + 1}`;
+  const playerShips = result.shipStats.filter(s => s.id.startsWith(prefix));
+  const playerScore = result.finalScores[playerId];
+
+  const shipsAlive = playerShips.filter(s => s.alive).length;
+  const shipsCrashed = playerShips.filter(s => !s.alive).length;
+  const totalFuelUsed = playerShips.reduce(
+    (sum, s) => sum + (config.fuelStart - s.fuelRemaining), 0
+  );
+  const totalTicksInZone = playerShips.reduce((sum, s) => sum + s.ticksInZone, 0);
+
+  let summary = '';
+  if (playerScore === 0) {
+    summary = 'No points scored. Ships may have crashed early or never reached the scoring zone.';
+  } else if (playerScore < 50) {
+    summary = `Low score (${playerScore}). Ships reached the zone occasionally but struggled to stay in it.`;
+  } else if (playerScore < 150) {
+    summary = `Moderate score (${playerScore}). Good zone tracking but room for improvement.`;
+  } else {
+    summary = `Strong score (${playerScore}). Effective zone tracking and fuel management.`;
+  }
+
+  if (shipsCrashed > 0) {
+    summary += ` ${shipsCrashed} ship(s) crashed into suns.`;
+  }
+
+  return {
+    game: 'Gravwell GPT',
+    reportType: 'compact_post_run_bot_improvement_diagnostic',
+    seed: config.seed,
+    totalTicks: config.totalTicks,
+    ticksSimulated: result.ticks.length,
+    positiveScore: playerScore,
+    bestShipScore: playerShips.length > 0 ? Math.max(...playerShips.map(s => s.ticksInZone)) : 0,
+    shipsAlive,
+    shipsCrashed,
+    totalFuelUsed,
+    avgFuelPerShip: totalFuelUsed / config.shipsPerPlayer,
+    totalTicksInZone,
+    perShip: playerShips,
+    summary,
+  };
+}
