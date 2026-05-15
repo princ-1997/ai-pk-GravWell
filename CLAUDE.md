@@ -93,3 +93,21 @@ Edit `src/llm/prompt-builder.ts`. The prompt is a template literal that includes
 - IndexedDB persistence
 - Full Runs tab with per-iteration charts
 - Web Worker sandbox for decide() execution
+
+See `ROADMAP.md` for the full phased development plan (Phase 0-7).
+
+## Development Workflow
+
+### Git Commit Strategy: Small & Frequent
+- Commit after each **single feature point** (one function, one component, one interface, etc.)
+- Keep commit messages concise and specific
+- Do NOT batch multiple feature points into one commit
+
+### Phase Completion Checklist
+After each Phase is verified working, you MUST:
+1. Update `README.md` — sync new feature descriptions, check off roadmap items
+2. Update `ROADMAP.md` — mark the completed Phase as ✅
+3. Update `CLAUDE.md` — sync project structure, new files, new commands
+4. Update `CHANGELOG.md` — record version number + added/changed/fixed
+5. Commit the 4 updated docs
+6. Run `git push` to push all changes to remote
