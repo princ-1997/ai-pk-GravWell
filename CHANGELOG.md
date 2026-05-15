@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0] - 2026-05-15
+
+### Added
+- **迭代学习引擎** (`src/llm/iteration-engine.ts`) — `IterationEngine` 类实现 generate → run → diagnose → improve 循环，支持最大轮数、得分阈值、连续无改进停止等配置
+- **改进 prompt 构建器** (`src/llm/improvement-prompt.ts`) — 将上轮代码 + DiagnosticReport 格式化为针对性改进指令，提示 LLM 修复具体失败船只并利用引力辅助节省燃料
+- **ITERATE 按钮** — Simulator 面板新增迭代控制区：ITERATE 按钮、轮数选择器（3/5/10 轮）、STOP 中止按钮
+- **实时进度显示** — 迭代过程中展示 `Round 2/5  |  34 → 67 → ...` 分数变化，完成后保留最终摘要
+- **爆炸粒子效果** — 飞船坠毁时在坠毁位置触发粒子爆炸动画，接入已有 `ParticleSystem`
+
+### Changed
+- **难度调整**：`fuelStart` 从 30 降至 **20**，强制真正的燃料规划而非无脑追区域
+- **难度调整**：得分区域最终半径从基准的 60% 收紧至 **40%**（r≈4 而非 r≈6），精度要求更高
+- 每轮迭代结束后自动将当前最高分代码加载到编辑器，方便随时 RUN TRIAL 验证
+
 ## [0.2.0] - 2026-05-15
 
 ### Added

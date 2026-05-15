@@ -46,7 +46,7 @@
 
 ---
 
-## Phase 3: 多轮迭代学习系统 ⬜ 下一步
+## Phase 3: 多轮迭代学习系统 ✅ 已完成 (v0.3.0)
 
 **目标**: LLM 生成 bot → 运行 → 诊断反馈 → 改进代码，循环 N 轮。**核心创新点**。
 
@@ -54,29 +54,33 @@
 
 ### 交付物
 
-1. **迭代引擎** (`src/llm/iteration-engine.ts` 新建)
+1. **迭代引擎** (`src/llm/iteration-engine.ts` ✅)
    - `IterationEngine` 类：generate → run → diagnose → improve 循环
    - 配置：最大轮数（默认 5）、停止条件（得分阈值 / 无改善 N 轮）
    - 每轮记录 `IterationRecord { round, code, score, diagnostic, tokensUsed }`
-   - 事件回调：`onRoundStart`, `onRoundComplete`, `onIterationDone`
+   - 事件回调：`onRoundStart`, `onRoundComplete`, `onIterationDone`, `onError`
 
-2. **改进提示词** (`src/llm/improvement-prompt.ts` 新建)
+2. **改进提示词** (`src/llm/improvement-prompt.ts` ✅)
    - 将上轮代码 + DiagnosticReport 格式化为改进指令
    - 指导 LLM 保留有效策略、修复具体失败
 
-3. **Simulator 面板扩展** (`src/main.ts` 修改)
-   - ITERATE 按钮 + 轮数选择器
-   - 实时进度：`Round 2/5 | Score: 45 → 78 → ...`
+3. **Simulator 面板扩展** (`src/main.ts` ✅)
+   - ITERATE 按钮 + 轮数选择器（3 / 5 / 10 轮）+ STOP 按钮
+   - 实时进度：`Round 2/5 | 45 → 78 → ...`
    - 最佳代码自动加载到编辑器
 
-4. **粒子效果接入** (`src/renderer/game-renderer.ts` 修改)
+4. **粒子效果接入** (`src/renderer/game-renderer.ts` ✅)
    - 飞船坠毁时触发 `explode()` 爆炸
+
+5. **难度调整** ✅
+   - `fuelStart` 30 → 20，逼迫真正的燃料规划
+   - Zone 最终半径 40%（原 60%），精度要求更高
 
 **版本**: 0.3.0
 
 ---
 
-## Phase 4: UI 模块化 + LLM Materials + Full Runs ⬜
+## Phase 4: UI 模块化 + LLM Materials + Full Runs ⬜ 下一步
 
 **目标**: 拆分膨胀的 `main.ts`，实现 LLM Materials 和 Full Runs 标签页。
 
@@ -196,7 +200,7 @@ Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6
 | Phase | 版本 | 里程碑 |
 |-------|------|--------|
 | 0-2 | 0.1.0 - 0.2.0 | ✅ 已发布 |
-| 3 | 0.3.0 | 迭代学习系统 |
+| 3 | 0.3.0 | ✅ 迭代学习系统 |
 | 4 | 0.4.0 | UI 重构 + 新标签页 |
 | 5 | 0.5.0 | 持久化 + 大逃杀 |
 | 6 | 0.6.0 | 排行榜 + 100 种子 |
