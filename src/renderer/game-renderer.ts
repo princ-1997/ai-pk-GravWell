@@ -4,6 +4,7 @@ import { renderStarfield, initStarfield } from './starfield';
 import { renderSun } from './sun-renderer';
 import { renderShip, renderTrails, type TrailStore } from './ship-renderer';
 import { renderZone } from './zone-renderer';
+import { ParticleSystem } from './effects';
 
 export class GameRenderer {
   canvas: HTMLCanvasElement;
@@ -13,6 +14,12 @@ export class GameRenderer {
 
   // Trail data: stores last N positions per ship
   trails: TrailStore = {};
+
+  // Particle system for explosions
+  private particles = new ParticleSystem();
+
+  // Track which ships were alive last frame to detect crashes
+  private prevAlive: Record<string, boolean> = {};
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -64,10 +71,12 @@ export class GameRenderer {
   }
 
   /**
-   * Clear trails (e.g., on new simulation).
+   * Clear trails and particles (e.g., on new simulation).
    */
   clearTrails(): void {
     this.trails = {};
+    this.particles.clear();
+    this.prevAlive = {};
   }
 
   /**
@@ -88,10 +97,11 @@ export class GameRenderer {
     }
 
     // 3. Suns
-    for (const sun of suns) {
+    for (let i = 0; i < suns.length; i++) {
+      const sun = suns[i];
       const { cx, cy } = this.gameToCanvas(sun.x, sun.y);
       const r = this.scaleToCanvas(sun.radius);
-      renderSun(ctx, cx, cy, r, sun.mass);
+      renderSun(ctx, cx, cy, r, sun.mass, i);
     }
 
     // 4. Scoring zone
@@ -99,8 +109,18 @@ export class GameRenderer {
     const zr = this.scaleToCanvas(tickRecord.zone.radius);
     renderZone(ctx, zx, zy, zr);
 
-    // 5. Update trails
+    // 5. Detect crashes and update trails
     for (const shipData of tickRecord.ships) {
+      const playerIdx = parseInt(shipData.id.charAt(1)) - 1;
+      const color = PLAYER_COLORS[playerIdx % PLAYER_COLORS.length];
+
+      // Trigger explosion when a ship transitions from alive → dead
+      if (this.prevAlive[shipData.id] === true && !shipData.alive) {
+        const { cx, cy } = this.gameToCanvas(shipData.x, shipData.y);
+        this.particles.explode(cx, cy, color, 25);
+      }
+      this.prevAlive[shipData.id] = shipData.alive;
+
       if (!shipData.alive && !this.trails[shipData.id]) continue;
       if (!this.trails[shipData.id]) {
         this.trails[shipData.id] = [];
@@ -108,7 +128,6 @@ export class GameRenderer {
       if (shipData.alive) {
         const { cx, cy } = this.gameToCanvas(shipData.x, shipData.y);
         this.trails[shipData.id].push({ x: cx, y: cy });
-        // Limit trail length
         if (this.trails[shipData.id].length > 100) {
           this.trails[shipData.id].shift();
         }
@@ -119,7 +138,6 @@ export class GameRenderer {
     for (const shipData of tickRecord.ships) {
       const trail = this.trails[shipData.id];
       if (!trail || trail.length < 2) continue;
-      // Determine player color from ship ID
       const playerIdx = parseInt(shipData.id.charAt(1)) - 1;
       const color = PLAYER_COLORS[playerIdx % PLAYER_COLORS.length];
       renderTrails(ctx, trail, color);
@@ -133,6 +151,9 @@ export class GameRenderer {
       const color = PLAYER_COLORS[playerIdx % PLAYER_COLORS.length];
       renderShip(ctx, cx, cy, color);
     }
+
+    // 7b. Render particles (explosions)
+    this.particles.render(ctx);
 
     // 8. Tick/score overlay on canvas
     ctx.fillStyle = THEME.gold;
@@ -159,10 +180,11 @@ export class GameRenderer {
       renderStarfield(ctx, this.starfieldCanvas);
     }
 
-    for (const sun of suns) {
+    for (let i = 0; i < suns.length; i++) {
+      const sun = suns[i];
       const { cx, cy } = this.gameToCanvas(sun.x, sun.y);
       const r = this.scaleToCanvas(sun.radius);
-      renderSun(ctx, cx, cy, r, sun.mass);
+      renderSun(ctx, cx, cy, r, sun.mass, i);
     }
 
     const { cx: zx, cy: zy } = this.gameToCanvas(zone.x, zone.y);
