@@ -8,6 +8,7 @@ import { parseDecideCode } from './llm/code-parser';
 import { createDecideFunction, BASELINE_ZONE_SEEKER_CODE } from './llm/sandbox';
 import { generateDiagnostic, type DiagnosticReport } from './llm/diagnostic';
 import { getZoneRadius } from './core/zone';
+import { IterationEngine, type IterationRecord } from './llm/iteration-engine';
 
 // ====== App State ======
 let config: GameConfig = { ...DEFAULT_CONFIG };
@@ -16,6 +17,11 @@ let simulationResult: SimulationResult | null = null;
 let currentBotCode = '';
 let currentDecide: DecideFunction | null = null;
 let diagnostic: DiagnosticReport | null = null;
+
+// Iteration state
+let iterationEngine: IterationEngine | null = null;
+let iterationRecords: IterationRecord[] = [];
+let iterationRunning = false;
 
 // Replay state
 let replayTicks: TickRecord[] = [];
@@ -107,6 +113,16 @@ function createApp(): void {
               <button class="btn btn-sm btn-outline" id="btn-load-baseline">LOAD BASELINE</button>
               <button class="btn btn-sm btn-outline" id="btn-load-code">APPLY EDIT</button>
             </div>
+            <div class="btn-row" style="margin-bottom: 6px;">
+              <button class="btn btn-sm" id="btn-iterate">ITERATE</button>
+              <select class="field-input" id="iterate-rounds" style="width: auto; padding: 4px 6px;">
+                <option value="3">3 rounds</option>
+                <option value="5" selected>5 rounds</option>
+                <option value="10">10 rounds</option>
+              </select>
+              <button class="btn btn-sm btn-outline" id="btn-stop-iterate" style="display:none;">STOP</button>
+            </div>
+            <div id="iteration-progress" style="display:none; font-size: 11px; color: var(--text-dim); margin-bottom: 6px;"></div>
             <textarea class="bot-code" id="bot-code" spellcheck="false" placeholder="// Bot code will appear here after generation..."></textarea>
           </div>
 
@@ -201,6 +217,8 @@ function setupEventListeners(): void {
 
   // Actions
   document.getElementById('btn-generate')!.addEventListener('click', generateBot);
+  document.getElementById('btn-iterate')!.addEventListener('click', startIteration);
+  document.getElementById('btn-stop-iterate')!.addEventListener('click', stopIteration);
   document.getElementById('btn-run')!.addEventListener('click', runScoreTrial);
   document.getElementById('btn-play')!.addEventListener('click', playReplay);
   document.getElementById('btn-stop')!.addEventListener('click', stopReplay);
@@ -342,6 +360,95 @@ async function generateBot(): Promise<void> {
     showStatus(`Error: ${msg}`, 'error');
   } finally {
     disableButtons(false);
+  }
+}
+
+// ====== Iterative Learning ======
+async function startIteration(): Promise<void> {
+  const apiKey = (document.getElementById('api-key') as HTMLInputElement).value;
+  const provider = (document.getElementById('api-provider') as HTMLSelectElement).value as ApiProvider;
+  const model = (document.getElementById('model-input') as HTMLInputElement).value;
+  const maxRounds = parseInt((document.getElementById('iterate-rounds') as HTMLSelectElement).value);
+
+  if (!apiKey) { showStatus('Please enter an API key first.', 'error'); return; }
+  if (!model) { showStatus('Please enter a model name.', 'error'); return; }
+
+  if (!simulation) initializeSimulation();
+
+  iterationRunning = true;
+  iterationRecords = [];
+  disableButtons(true);
+  document.getElementById('btn-stop-iterate')!.style.display = 'inline-block';
+
+  const progressEl = document.getElementById('iteration-progress')!;
+  progressEl.style.display = 'block';
+  progressEl.textContent = 'Starting...';
+
+  const scoreHistory: number[] = [];
+
+  iterationEngine = new IterationEngine(
+    { maxRounds, noImprovementRounds: 3 },
+    {
+      onRoundStart: (round, total) => {
+        showStatus(`<span class="spinner"></span> Round ${round}/${total} — calling LLM...`, 'info');
+        progressEl.textContent = `Round ${round}/${total}  |  ${scoreHistory.join(' → ')}${scoreHistory.length ? ' → ...' : '...'}`;
+      },
+      onRoundComplete: (record) => {
+        scoreHistory.push(record.score);
+        progressEl.textContent = `Round ${record.round}/${maxRounds}  |  ${scoreHistory.join(' → ')}`;
+
+        // Load best code into editor
+        const best = iterationRecords.length > 0
+          ? iterationRecords.reduce((b, r) => r.score > b.score ? r : b)
+          : null;
+        if (!best || record.score >= (best?.score ?? -1)) {
+          currentBotCode = record.code;
+          currentDecide = createDecideFunction(record.code);
+          (document.getElementById('bot-code') as HTMLTextAreaElement).value = record.code;
+        }
+        iterationRecords.push(record);
+      },
+      onIterationDone: (records, bestRound) => {
+        iterationRunning = false;
+        disableButtons(false);
+        document.getElementById('btn-stop-iterate')!.style.display = 'none';
+
+        if (records.length === 0) {
+          showStatus('Iteration stopped with no results.', 'info');
+          return;
+        }
+
+        const best = records.reduce((b, r) => r.score > b.score ? r : b);
+        currentBotCode = best.code;
+        currentDecide = createDecideFunction(best.code);
+        (document.getElementById('bot-code') as HTMLTextAreaElement).value = best.code;
+
+        const totalTokens = records.reduce((s, r) => s + r.tokensUsed.input + r.tokensUsed.output, 0);
+        showStatus(
+          `Iteration complete. Best score: ${best.score} (round ${bestRound}). Scores: ${records.map(r => r.score).join(' → ')}. Tokens: ${totalTokens}.`,
+          'success'
+        );
+        progressEl.textContent = `Done — ${records.length} rounds  |  ${records.map(r => r.score).join(' → ')}  |  Best: ${best.score} (R${bestRound})`;
+      },
+      onError: (round, msg) => {
+        iterationRunning = false;
+        disableButtons(false);
+        document.getElementById('btn-stop-iterate')!.style.display = 'none';
+        showStatus(`Iteration error at round ${round}: ${msg}`, 'error');
+      },
+    }
+  );
+
+  await iterationEngine.run(config, provider, apiKey, model);
+}
+
+function stopIteration(): void {
+  if (iterationEngine) {
+    iterationEngine.stop();
+    iterationRunning = false;
+    disableButtons(false);
+    document.getElementById('btn-stop-iterate')!.style.display = 'none';
+    showStatus('Iteration stopped by user.', 'info');
   }
 }
 
@@ -492,7 +599,7 @@ function showStatus(html: string, type: 'info' | 'error' | 'success'): void {
 }
 
 function disableButtons(disabled: boolean): void {
-  const btns = ['btn-generate', 'btn-run', 'btn-play'];
+  const btns = ['btn-generate', 'btn-iterate', 'btn-run', 'btn-play'];
   btns.forEach(id => {
     (document.getElementById(id) as HTMLButtonElement).disabled = disabled;
   });
