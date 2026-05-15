@@ -13,6 +13,9 @@ export interface IterationRecord {
   score: number;
   diagnostic: DiagnosticReport;
   tokensUsed: { input: number; output: number };
+  systemPrompt: string;
+  userPrompt: string;
+  rawResponse: string;
 }
 
 export interface IterationConfig {
@@ -113,6 +116,9 @@ export class IterationEngine {
             input: response.usage.inputTokens,
             output: response.usage.outputTokens,
           },
+          systemPrompt,
+          userPrompt,
+          rawResponse: response.content,
         };
 
         records.push(record);
