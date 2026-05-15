@@ -91,18 +91,16 @@ function decide(ctx) {
 
 ```
 src/
+├── main.ts      # 应用入口（bootstrap）
 ├── core/        # 纯物理模拟引擎（无 DOM）
 ├── renderer/    # Canvas 渲染（恒星光晕、飞船轨迹、爆炸粒子）
 ├── llm/         # LLM API 集成 + 迭代学习引擎
-│   ├── api.ts                 # 多 Provider API 客户端
-│   ├── prompt-builder.ts      # 初始生成 prompt
-│   ├── improvement-prompt.ts  # 迭代改进 prompt
-│   ├── iteration-engine.ts    # IterationEngine 迭代循环
-│   ├── code-parser.ts         # 提取 decide() 函数
-│   ├── sandbox.ts             # new Function() 沙箱
-│   └── diagnostic.ts          # 诊断报告生成
-├── utils/       # 向量数学工具
-└── main.ts      # 应用入口
+├── ui/          # 模块化 UI 层
+│   ├── app.ts                 # AppState + App 类（tab 路由）
+│   ├── tabs/                  # 标签页：Simulator / LLM Materials / Full Runs
+│   └── components/            # UI 组件：API 配置 / 代码编辑器 / 迭代面板 / 回放控制
+├── modes/       # 游戏模式编排器（多种子批量运行等）
+└── utils/       # 向量数学工具
 ```
 
 ## 路线图
@@ -116,7 +114,9 @@ src/
 - [x] 内置基线机器人
 - [x] 诊断报告
 - [x] 多轮迭代学习系统（ITERATE 按钮 + 实时进度 + 自动加载最佳代码）
-- [ ] LLM Materials 标签页
+- [x] UI 模块化重构（main.ts 620→12 行，拆分为组件 + 标签页）
+- [x] LLM Materials 标签页（完整 prompt/response/diagnostic 查看器）
+- [x] Full Runs 标签页（多种子批量运行 + 统计 + 柱状图）
 - [ ] 4 人大逃杀模式
 - [ ] PVP 模式 + Elo 排名
 - [ ] 排行榜 + 100 种子平均

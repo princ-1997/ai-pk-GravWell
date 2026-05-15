@@ -15,7 +15,7 @@ A web-based LLM benchmark game. AI models write JavaScript `decide(ctx)` functio
 
 ```
 src/
-├── main.ts              # App entry: DOM setup, event wiring, replay loop
+├── main.ts              # Bootstrap only (~12 lines): creates App, registers tabs
 ├── types.ts             # All shared interfaces (Ship, Sun, Zone, Vec2, etc.)
 ├── constants.ts         # Game defaults, colors, theme tokens
 ├── core/                # Pure simulation engine (NO DOM, NO Canvas)
@@ -28,9 +28,24 @@ src/
 ├── llm/                 # LLM integration
 │   ├── api.ts           # OpenRouter / Anthropic / OpenAI / DeepSeek API client
 │   ├── prompt-builder.ts # Builds the system+user prompt with game rules
+│   ├── improvement-prompt.ts # Improvement prompt for iteration rounds 2+
+│   ├── iteration-engine.ts   # Multi-round iterative learning engine
 │   ├── code-parser.ts   # Extracts decide() from LLM response text
 │   ├── sandbox.ts       # new Function() sandbox + baseline bot code
 │   └── diagnostic.ts    # Post-run diagnostic report generation
+├── ui/                  # Modular UI layer
+│   ├── app.ts           # AppState interface, App class (tab routing, state)
+│   ├── tabs/
+│   │   ├── simulator-tab.ts      # Simulator: canvas + all business logic
+│   │   ├── llm-materials-tab.ts  # LLM Materials: prompt/response/diagnostic
+│   │   └── full-runs-tab.ts      # Full Runs: multi-seed batch runner + chart
+│   └── components/
+│       ├── api-config.ts         # API configuration (provider/key/model)
+│       ├── code-editor.ts        # Bot code textarea + action buttons
+│       ├── iteration-panel.ts    # Iterate/stop + rounds + progress
+│       └── replay-controls.ts    # Run/play/stop + speed + status + results
+├── modes/               # Game mode orchestrators
+│   └── multi-seed-runner.ts # Batch execution across multiple seeds
 ├── renderer/            # Canvas rendering (consumes TickRecord[])
 │   ├── game-renderer.ts # Main render orchestrator, coordinate mapping
 │   ├── starfield.ts     # OffscreenCanvas cached starfield
@@ -52,6 +67,8 @@ src/
 
 4. **Replay from stored data** — Replays use `TickRecord[]` stored after simulation, not re-simulation.
 
+5. **Modular UI** — `main.ts` is bootstrap only. Each tab is a class implementing `Tab` interface with `onActivate()`/`onDeactivate()` lifecycle. Components are pure UI (no business logic) with callback pattern. `AppState` is a plain mutable object passed by reference — no reactivity framework.
+
 ## Core Physics
 
 - **Verlet integration**: `next = current + (current - previous) + gravity + thrust`
@@ -71,27 +88,25 @@ npx tsc --noEmit # Type check only
 
 ### Adding a new game mode
 1. Create `src/modes/<mode>.ts` orchestrator
-2. Wire it into `main.ts` mode dropdown and action handlers
-3. Simulation class already supports multiple players via `deciders[]` array
+2. Create `src/ui/tabs/<mode>-tab.ts` tab class implementing `Tab` interface
+3. Register in `main.ts` with `app.registerTab()`
+4. Simulation class already supports multiple players via `deciders[]` array
 
 ### Modifying physics
 Edit `src/core/physics.ts`. The formulas are in `calculateGravity()` and `verletStep()`. Constants live in `src/constants.ts` (`DEFAULT_CONFIG`).
 
 ### Adding a new LLM provider
-Add a new function in `src/llm/api.ts` following the pattern of `callOpenRouter()`. Update `ApiProvider` type and the `callLLM()` switch. Add the option to the `#api-provider` dropdown in `main.ts`.
+Add a new function in `src/llm/api.ts` following the pattern of `callOpenRouter()`. Update `ApiProvider` type and the `callLLM()` switch. Add the option to the provider dropdown in `src/ui/components/api-config.ts`.
 
 ### Changing the prompt
 Edit `src/llm/prompt-builder.ts`. The prompt is a template literal that includes seed-specific arena data.
 
 ## Not Yet Implemented (Planned)
 
-- Multi-iteration learning system (LLM gets diagnostic → writes improved code)
-- LLM Materials tab (shows prompt + diagnostic)
 - Battle Royale mode (4 players)
 - PVP mode with Elo ratings
 - Leaderboard with 100-seed averaging
 - IndexedDB persistence
-- Full Runs tab with per-iteration charts
 - Web Worker sandbox for decide() execution
 
 See `ROADMAP.md` for the full phased development plan (Phase 0-7).

@@ -80,7 +80,7 @@
 
 ---
 
-## Phase 4: UI 模块化 + LLM Materials + Full Runs ⬜ 下一步
+## Phase 4: UI 模块化 + LLM Materials + Full Runs ✅ 已完成 (v0.4.0)
 
 **目标**: 拆分膨胀的 `main.ts`，实现 LLM Materials 和 Full Runs 标签页。
 
@@ -88,22 +88,33 @@
 
 ### 交付物
 
-1. **UI 模块化重构**
-   - `src/ui/app.ts` — 应用状态 + tab 路由
-   - `src/ui/tabs/simulator-tab.ts` — Simulator 面板
+1. **UI 模块化重构** ✅
+   - `src/ui/app.ts` — AppState 接口 + App 类（tab 路由、状态管理）
+   - `src/ui/tabs/simulator-tab.ts` — Simulator 面板（全部业务逻辑）
    - `src/ui/tabs/llm-materials-tab.ts` — LLM Materials
    - `src/ui/tabs/full-runs-tab.ts` — Full Runs
-   - `src/ui/components/` — api-config, code-editor, replay-controls, iteration-panel
-   - `main.ts` 精简为 bootstrap
+   - `src/ui/components/api-config.ts` — API 配置组件
+   - `src/ui/components/code-editor.ts` — 代码编辑器组件
+   - `src/ui/components/iteration-panel.ts` — 迭代面板组件
+   - `src/ui/components/replay-controls.ts` — 回放控制组件
+   - `main.ts` 从 620 行精简为 12 行 bootstrap
 
-2. **LLM Materials 标签页**
-   - 展示完整 prompt、LLM 原始回复、每轮 DiagnosticReport
-   - 代码解析对比（原始 vs 提取后）
+2. **LLM Materials 标签页** ✅
+   - 展示完整 system prompt、user prompt、LLM 原始回复
+   - 提取后代码展示
+   - 每轮 DiagnosticReport（含逐船统计表格）
+   - 支持单次生成和多轮迭代两种模式
 
-3. **Full Runs（多种子批量运行）**
-   - `src/modes/multi-seed-runner.ts` 新建
-   - 输入种子范围（如 1-20），批量运行同一 bot
-   - 结果表格 + 统计摘要（平均/中位/标准差）+ 迷你柱状图
+3. **Full Runs（多种子批量运行）** ✅
+   - `src/modes/multi-seed-runner.ts` — 批量执行引擎
+   - 支持范围格式（`1-20`）和逗号格式（`1,5,10`）
+   - 结果表格（种子/分数/存活/坠毁/燃料/区域 tick）
+   - 统计摘要（平均/中位/标准差/最低/最高 + 对应种子号）
+   - 颜色编码柱状图（绿 ≥ 中位数，红 < 中位数）+ 中位数虚线
+
+4. **IterationRecord 扩展** ✅
+   - 新增 `systemPrompt`、`userPrompt`、`rawResponse` 字段
+   - 为 LLM Materials 标签页提供完整交互数据
 
 **版本**: 0.4.0
 
@@ -201,7 +212,7 @@ Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6
 |-------|------|--------|
 | 0-2 | 0.1.0 - 0.2.0 | ✅ 已发布 |
 | 3 | 0.3.0 | ✅ 迭代学习系统 |
-| 4 | 0.4.0 | UI 重构 + 新标签页 |
+| 4 | 0.4.0 | ✅ UI 重构 + 新标签页 |
 | 5 | 0.5.0 | 持久化 + 大逃杀 |
 | 6 | 0.6.0 | 排行榜 + 100 种子 |
 | 7 | 1.0.0 | PVP + Elo = 功能完整 |

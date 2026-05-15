@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0] - 2026-05-15
+
+### Added
+- **UI 模块化重构** — `main.ts` 从 620 行精简为 12 行 bootstrap。业务逻辑拆分到 `src/ui/tabs/simulator-tab.ts`，UI 组件拆分到 `src/ui/components/`（api-config、code-editor、iteration-panel、replay-controls）
+- **App 框架** (`src/ui/app.ts`) — `AppState` 集中状态管理 + `App` 类实现 tab 路由和 `onActivate()`/`onDeactivate()` 生命周期
+- **LLM Materials 标签页** (`src/ui/tabs/llm-materials-tab.ts`) — 完整展示每轮 LLM 交互：system prompt、user prompt、原始回复、提取后代码、DiagnosticReport（含逐船统计表格）。支持单次生成和多轮迭代两种模式
+- **Full Runs 标签页** (`src/ui/tabs/full-runs-tab.ts`) — 多种子批量运行，支持范围格式（`1-20`）和逗号格式（`1,5,10`）。包含结果表格、统计摘要（平均/中位/标准差/最低/最高）、颜色编码柱状图
+- **MultiSeedRunner** (`src/modes/multi-seed-runner.ts`) — 纯逻辑批量执行引擎，每 5 个种子 yield 到 UI 线程，支持中止
+- **IterationRecord 扩展** — 新增 `systemPrompt`、`userPrompt`、`rawResponse` 字段，为 LLM Materials 提供完整数据
+
+### Changed
+- 组件模式：构造函数创建 DOM → 添加到父元素 → 回调模式连接事件
+- Tab 模式：每个标签页实现 `Tab` 接口，通过 `App.registerTab()` 注册
+
 ## [0.3.0] - 2026-05-15
 
 ### Added
