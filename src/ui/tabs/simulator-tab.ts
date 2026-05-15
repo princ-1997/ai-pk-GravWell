@@ -30,7 +30,7 @@ export class SimulatorTab implements Tab {
   private iterationPanel!: IterationPanel;
   private replayControls!: ReplayControls;
 
-  constructor(parent: HTMLElement, state: AppState) {
+  constructor(state: AppState) {
     this.state = state;
     this.el = document.createElement('div');
     this.buildLayout();
