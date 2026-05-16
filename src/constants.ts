@@ -5,7 +5,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   totalTicks: 200,
   playerCount: 1,
   shipsPerPlayer: 3,
-  fuelStart: 20,
+  fuelStart: 30,
   maxThrust: 1,
   conditionMax: 10,
   predictionTicks: 5,

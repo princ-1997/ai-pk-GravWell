@@ -54,12 +54,12 @@ export class SimulatorTab implements Tab {
 
     const rightPanel = this.el.querySelector('#sim-right-panel') as HTMLElement;
 
-    // 1. API Config with player management
+    // 1. API Config with player management — single player only in Simulator
     this.apiConfig = new ApiConfig(rightPanel, {
       onStatusMessage: (html, type) => this.replayControls.showStatus(html, type),
       onAddPlayer: (player) => this.addPlayer(player),
       onRemovePlayer: (id) => this.removePlayer(id),
-    });
+    }, { maxPlayers: 1 });
 
     // 2. Game Config
     const gameConfigEl = document.createElement('div');

@@ -112,7 +112,7 @@ export function generateArena(config: GameConfig): ArenaData {
     config.shipsPerPlayer,
     suns
   );
-  const zonePath = generateZonePath(config.seed, config.totalTicks);
+  const zonePath = generateZonePath(config.seed, config.totalTicks, suns);
 
   return {
     suns,

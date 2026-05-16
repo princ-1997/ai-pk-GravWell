@@ -7,6 +7,10 @@ export interface ApiConfigCallbacks {
   onRemovePlayer: (playerId: number) => void;
 }
 
+export interface ApiConfigOptions {
+  maxPlayers?: number;
+}
+
 const STORAGE_KEY = 'gravwell-players';
 
 export class ApiConfig {
@@ -14,9 +18,11 @@ export class ApiConfig {
   private players: Player[] = [];
   private rosterEl!: HTMLElement;
   private callbacks: ApiConfigCallbacks;
+  private maxPlayers: number;
 
-  constructor(parent: HTMLElement, callbacks: ApiConfigCallbacks) {
+  constructor(parent: HTMLElement, callbacks: ApiConfigCallbacks, options?: ApiConfigOptions) {
     this.callbacks = callbacks;
+    this.maxPlayers = options?.maxPlayers ?? MAX_PLAYERS;
     this.el = document.createElement('div');
     this.el.className = 'panel-section';
     this.el.innerHTML = `
@@ -71,8 +77,8 @@ export class ApiConfig {
       this.callbacks.onStatusMessage('Please enter a model name.', 'error');
       return;
     }
-    if (this.players.length >= MAX_PLAYERS) {
-      this.callbacks.onStatusMessage(`Max ${MAX_PLAYERS} players allowed.`, 'error');
+    if (this.players.length >= this.maxPlayers) {
+      this.callbacks.onStatusMessage(`Max ${this.maxPlayers} player${this.maxPlayers === 1 ? '' : 's'} allowed.`, 'error');
       return;
     }
 
@@ -151,8 +157,8 @@ export class ApiConfig {
   }
 
   addBaselinePlayer(): Player | null {
-    if (this.players.length >= MAX_PLAYERS) {
-      this.callbacks.onStatusMessage(`Max ${MAX_PLAYERS} players allowed.`, 'error');
+    if (this.players.length >= this.maxPlayers) {
+      this.callbacks.onStatusMessage(`Max ${this.maxPlayers} player${this.maxPlayers === 1 ? '' : 's'} allowed.`, 'error');
       return null;
     }
 
@@ -211,12 +217,11 @@ export class ApiConfig {
           model: string;
           label: string;
         }>;
-        this.players = data.map(d => ({
+        this.players = data.slice(0, this.maxPlayers).map(d => ({
           ...d,
           color: PLAYER_COLORS[d.id] || PLAYER_COLORS[0],
         }));
         this.renderRoster();
-        // Notify for each player
         for (const p of this.players) {
           this.callbacks.onAddPlayer(p);
         }
