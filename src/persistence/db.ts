@@ -2,7 +2,7 @@ import type { GameConfig } from '../types';
 import { TOTAL_ROUNDS } from '../llm/multi-player-iteration-engine';
 
 const DB_NAME = 'gravwell-gpt';
-const DB_VERSION = 4; // v4: TOTAL_ROUNDS added to configHash, invalidates old cached runs
+const DB_VERSION = 5; // v5: pvp-bots + pvp-matches stores added
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -48,6 +48,22 @@ export function openDB(): Promise<IDBDatabase> {
             .objectStore('leaderboard-runs')
             .clear();
         }
+      }
+
+      // v4→v5: add pvp-bots and pvp-matches stores
+      if (oldVersion < 5) {
+        const botStore = db.createObjectStore('pvp-bots', {
+          keyPath: 'id',
+          autoIncrement: true,
+        });
+        botStore.createIndex('model', 'model', { unique: false });
+        botStore.createIndex('createdAt', 'createdAt', { unique: false });
+
+        const matchStore = db.createObjectStore('pvp-matches', {
+          keyPath: 'id',
+          autoIncrement: true,
+        });
+        matchStore.createIndex('timestamp', 'timestamp', { unique: false });
       }
     };
 
