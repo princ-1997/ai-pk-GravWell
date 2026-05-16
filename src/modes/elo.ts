@@ -1,4 +1,4 @@
-export const INITIAL_ELO = 1500;
+export { INITIAL_ELO } from '../constants';
 const K = 32;
 
 function expectedScore(ra: number, rb: number): number {

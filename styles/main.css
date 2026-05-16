@@ -1240,3 +1240,33 @@ select.field-input {
   color: var(--text);
   margin: 0;
 }
+
+/* ====== PVP Tab ====== */
+.pvp-tab-root {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.pvp-layout {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  min-height: 100%;
+  box-sizing: border-box;
+  align-items: flex-start;
+}
+
+.pvp-left {
+  flex: 0 0 360px;
+  min-width: 280px;
+}
+
+.pvp-right {
+  flex: 1;
+  min-width: 0;
+}
+
+.pvp-history-row:hover td {
+  background: rgba(255, 215, 0, 0.04);
+}

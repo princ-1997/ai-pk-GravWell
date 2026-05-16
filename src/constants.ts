@@ -19,6 +19,7 @@ export const DEFAULT_CONFIG: GameConfig = {
 export const MAX_PLAYERS = 4;
 
 export const LEADERBOARD_SEEDS: number[] = Array.from({ length: 100 }, (_, i) => i + 1);
+export const INITIAL_ELO = 1500;
 export const LEADERBOARD_ROUNDS = 5;
 
 export const PLAYER_COLORS = [
