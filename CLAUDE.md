@@ -39,6 +39,7 @@ src/
 │   ├── tabs/
 │   │   ├── simulator-tab.ts      # Simulator: multi-player benchmark orchestration
 │   │   ├── llm-materials-tab.ts  # LLM Materials: per-player per-round prompt/response
+│   │   ├── database-tab.ts       # Database: browse/delete historical benchmark runs + code viewer
 │   │   └── full-runs-tab.ts      # Full Runs: multi-seed batch runner + chart
 │   └── components/
 │       ├── api-config.ts         # API config + ADD PLAYER + player roster
@@ -48,7 +49,8 @@ src/
 │   ├── multi-seed-runner.ts # Batch execution across multiple seeds
 │   └── leaderboard-runner.ts # Multi-seed leaderboard with IndexedDB caching
 ├── persistence/         # IndexedDB storage layer
-│   ├── db.ts            # Database init, version migration, config hashing
+│   ├── db.ts            # Database init, version migration (v3), config hashing
+│   ├── simulator-store.ts   # CRUD for simulator-runs (per-player benchmark history)
 │   └── leaderboard-store.ts # CRUD for leaderboard run records
 ├── renderer/            # Canvas rendering (consumes TickRecord[])
 │   ├── game-renderer.ts # Main render orchestrator, coordinate mapping
@@ -76,6 +78,8 @@ src/
 6. **Multi-player benchmark flow** — Users add AI models as "Players" via ADD PLAYER (up to 4). Clicking PLAY runs 5 rounds: each round all players call LLM in parallel, then compete in the same simulation. Each model's improvement prompt includes the **full evolution history** (score progression table, per-ship details, trend detection, best + latest code). A round slider lets users replay any round's trajectory. Score progression chart shows learning curves.
 
 7. **Full-history iteration** — The improvement prompt compresses all previous rounds into: (1) score progression table, (2) compact per-ship summaries, (3) IMPROVING/FLAT/REGRESSING trend detection, (4) best-scoring code + latest code. On regression, the model is warned to start from the best code. Error fallback uses the historical best code, not just the previous round.
+
+8. **Two-layer persistence** — `simulator-runs` (IndexedDB) stores per-player code+score history for every benchmark; loaded at boot to restore `playerCache` across sessions. `leaderboard-runs` stores full `RoundResult[]` for multi-seed leaderboard runs (includes TickRecord[]).
 
 ## Core Physics
 

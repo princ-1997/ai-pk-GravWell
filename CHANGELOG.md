@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0] - 2026-05-16
+
+### Added
+- **Database 标签页** (`src/ui/tabs/database-tab.ts`) — 浏览所有历史基准测试 run，表格展示日期 / 模型 / Provider / 种子 / 最高分 / 最佳轮次；点击 ROUNDS 展开逐轮分数；点击 VIEW CODE 弹窗查看任意轮次的代码；DEL 删除单条记录；CLEAR ALL 清空全部
+- **SimulatorRunRecord 持久化** (`src/persistence/simulator-store.ts`) — 每次基准测试完成后，自动将每个玩家的 code/score 逐轮写入 IndexedDB `simulator-runs` store；重复运行同一模型+种子会累积历史（非覆盖）
+- **cache 跨 session 持久化** — 应用启动时调用 `getLatestRunsByCacheKey()` 从 DB 读取最新记录并恢复 `playerCache`，使得硬刷新后重跑同一种子仍能命中缓存（显示 `[cache]`）
+- **`SimulatorRunRecord` 类型** (`src/types.ts`) — `{ id?, cacheKey, timestamp, seed, provider, model, rounds[], bestScore, bestRound }`
+- **`simulator-store.ts` CRUD** — `putSimulatorRun`, `getAllSimulatorRuns`, `getLatestRunsByCacheKey`, `deleteSimulatorRun`, `deleteAllSimulatorRuns`
+
+### Changed
+- **IndexedDB 升级至 v3** — 新增 `simulator-runs` object store（indices: `cacheKey`、`model`、`timestamp`）；v2→v3 迁移保留 `leaderboard-runs` 数据不变
+
 ## [0.5.3] - 2026-05-16
 
 ### Added

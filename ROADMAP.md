@@ -219,7 +219,7 @@
 
 ---
 
-## Phase 6: 数据持久化 ⬜
+## Phase 6: 数据持久化 ✅ 已完成 (v0.6.0)
 
 **目标**: IndexedDB 持久化全部运行数据（排行榜已实现基础持久化）。
 
@@ -227,11 +227,21 @@
 
 ### 交付物
 
-1. **存储层扩展**
-   - Bot 代码存储（模型名、代码、来源）
-   - 运行记录（种子、得分、诊断、迭代历史）
-   - TickRecord[] 按需存储（仅最佳 run），避免数据膨胀
-   - Database 标签页：浏览历史 bot + run，加载历史 bot
+1. **`simulator-runs` IndexedDB store** (`src/persistence/simulator-store.ts` 新建)
+   - 每次基准测试完成后，自动为每个玩家写入一条 `SimulatorRunRecord`（seed、model、provider、逐轮 code/score、bestScore/bestRound）
+   - 重复运行累积历史（非覆盖），可按 timestamp 查阅所有历史
+
+2. **Cache 跨 session 持久化** (`src/ui/tabs/simulator-tab.ts`)
+   - 启动时从 DB 读取最新记录恢复 `playerCache`，硬刷新后重跑同一种子仍显示 `[cache]`
+   - 运行完成后同步写 DB（fire-and-forget，不阻塞 UI）
+
+3. **Database 标签页** (`src/ui/tabs/database-tab.ts` 新建)
+   - 表格：日期 / 模型 / Provider / 种子 / 最高分 / 最佳轮次 / 总轮数 / 操作
+   - 展开行：逐轮分数 + VIEW CODE 弹窗（全代码预览）
+   - REFRESH 刷新列表 / DEL 删单条（同步清 in-memory cache）/ CLEAR ALL 清全部
+
+4. **DB 迁移至 v3** (`src/persistence/db.ts`)
+   - 新增 `simulator-runs` store，v2→v3 保留 `leaderboard-runs` 数据
 
 **版本**: 0.6.0
 
@@ -308,7 +318,7 @@ Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 5.
 | 5 | 0.5.0 | ✅ 多玩家基准测试 |
 | 5.1 | 0.5.1 | ✅ 全历史迭代进化 + Bug 修复 |
 | 5.2 | 0.5.2 + 0.5.3 | ✅ Prompt 重设计 + 并行可见性 + per-seed 缓存 |
-| 6 | 0.6.0 | 数据持久化 |
+| 6 | 0.6.0 | ✅ 数据持久化 + Database 标签页 |
 | 7 | 0.7.0 | 排行榜 + 100 种子 |
 | 8 | 1.0.0 | PVP + Elo = 功能完整 |
 
