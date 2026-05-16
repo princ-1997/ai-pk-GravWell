@@ -164,3 +164,17 @@ export interface RoundResult {
   ticks: TickRecord[];           // Shared multi-player replay
   players: PlayerRoundData[];
 }
+
+// ====== Leaderboard Persistence ======
+export interface LeaderboardRunRecord {
+  id?: number;
+  cacheKey: string;              // "{model}::{configHash}::{seed}"
+  model: string;
+  provider: ApiProvider;
+  seed: number;
+  configHash: string;
+  roundResults: RoundResult[];
+  finalScore: number;
+  totalTokens: { input: number; output: number };
+  timestamp: number;
+}

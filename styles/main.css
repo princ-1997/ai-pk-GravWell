@@ -747,3 +747,282 @@ select.field-input {
   height: 160px;
   display: block;
 }
+
+/* ====== Leaderboard Tab ====== */
+.leaderboard-layout {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.leaderboard-controls {
+  width: 320px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-panel);
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.leaderboard-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+/* Model checkboxes */
+.lb-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lb-model-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.lb-model-row input[type="checkbox"] {
+  accent-color: var(--gold);
+}
+
+.lb-model-row label {
+  font-size: 11px;
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-select-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.lb-select-btns button {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.lb-select-btns button:hover {
+  color: var(--gold);
+  border-color: var(--gold-dim);
+}
+
+/* Progress status */
+.lb-status {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.lb-status-model {
+  color: var(--gold);
+  font-weight: bold;
+}
+
+.lb-status-seed {
+  color: var(--text);
+}
+
+/* Ranking table */
+.lb-ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin-bottom: 16px;
+}
+
+.lb-ranking-table th,
+.lb-ranking-table td {
+  padding: 6px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+
+.lb-ranking-table th {
+  color: var(--text-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel-alt);
+}
+
+.lb-ranking-table td {
+  color: var(--text);
+}
+
+.lb-ranking-table td:first-child,
+.lb-ranking-table th:first-child {
+  text-align: center;
+  width: 30px;
+}
+
+.lb-ranking-table td:nth-child(2),
+.lb-ranking-table th:nth-child(2) {
+  text-align: left;
+}
+
+.lb-ranking-table tr.lb-row-complete td:nth-child(3) {
+  color: var(--gold);
+  font-weight: bold;
+}
+
+/* Seed score matrix */
+.lb-matrix-section {
+  margin-bottom: 16px;
+}
+
+.lb-matrix-wrap {
+  overflow-x: auto;
+}
+
+.lb-matrix {
+  border-collapse: collapse;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.lb-matrix th,
+.lb-matrix td {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  text-align: center;
+  min-width: 44px;
+}
+
+.lb-matrix th {
+  color: var(--text-dim);
+  font-size: 9px;
+  text-transform: uppercase;
+  background: var(--bg-panel-alt);
+}
+
+.lb-matrix td.lb-model-cell {
+  text-align: left;
+  color: var(--text);
+  font-weight: bold;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-matrix td.lb-avg-cell {
+  color: var(--gold);
+  font-weight: bold;
+  background: rgba(255, 215, 0, 0.05);
+}
+
+.lb-cell--pending {
+  color: var(--text-muted);
+}
+
+.lb-cell--running {
+  color: var(--gold-bright);
+  animation: lb-pulse 1s ease-in-out infinite;
+}
+
+@keyframes lb-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.lb-cell--complete {
+  color: var(--text);
+  cursor: pointer;
+}
+
+.lb-cell--complete:hover {
+  color: var(--gold);
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.lb-cell--cached {
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.lb-cell--cached:hover {
+  color: var(--gold);
+  background: rgba(255, 215, 0, 0.1);
+}
+
+/* Bar chart */
+.lb-chart-section {
+  margin-bottom: 16px;
+}
+
+.lb-chart-section canvas {
+  width: 100%;
+  height: 180px;
+  display: block;
+}
+
+/* Seed detail panel */
+.lb-detail {
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.lb-detail-title {
+  font-size: 12px;
+  color: var(--gold);
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.lb-detail-close {
+  float: right;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 10px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.lb-detail-close:hover {
+  color: var(--gold);
+  border-color: var(--gold-dim);
+}
+
+.lb-detail canvas {
+  width: 100%;
+  height: 140px;
+  display: block;
+  margin-top: 8px;
+}
+
+.lb-detail-rounds {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.lb-detail-rounds span {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+.lb-no-models {
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 4px 0;
+}
