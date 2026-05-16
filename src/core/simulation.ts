@@ -21,9 +21,9 @@ export class Simulation {
   ticks: TickRecord[] = [];
   shipStats: SimulationResult['shipStats'] = [];
 
-  constructor(config: GameConfig) {
+  constructor(config: GameConfig, arenaOverride?: ArenaData) {
     this.config = config;
-    this.arena = generateArena(config);
+    this.arena = arenaOverride ?? generateArena(config);
     this.reset();
   }
 
