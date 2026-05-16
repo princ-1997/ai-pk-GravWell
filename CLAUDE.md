@@ -29,7 +29,7 @@ src/
 │   ├── api.ts           # OpenRouter / Anthropic / OpenAI / DeepSeek API client
 │   ├── prompt-builder.ts # Builds the system+user prompt with game rules
 │   ├── improvement-prompt.ts # Full-history improvement prompt with trend analysis
-│   ├── multi-player-iteration-engine.ts # 5-round multi-player benchmark engine
+│   ├── multi-player-iteration-engine.ts # 10-round multi-player benchmark engine
 │   ├── iteration-engine.ts   # Legacy single-player iteration engine
 │   ├── code-parser.ts   # Extracts decide() from LLM response text
 │   ├── sandbox.ts       # new Function() sandbox + baseline bot code
@@ -71,11 +71,11 @@ src/
 
 3. **LLM code runs via `new Function()`** — Not a Web Worker yet (MVP). The ctx object is a snapshot copy so decide() can't mutate game state. Errors are caught and return `{x:0, y:0}`.
 
-4. **Replay from stored data** — Replays use `TickRecord[]` stored after simulation, not re-simulation. Each of the 5 iteration rounds stores its full `TickRecord[]` for per-round replay.
+4. **Replay from stored data** — Replays use `TickRecord[]` stored after simulation, not re-simulation. Each of the 10 iteration rounds stores its full `TickRecord[]` for per-round replay.
 
 5. **Modular UI** — `main.ts` is bootstrap only. Each tab is a class implementing `Tab` interface with `onActivate()`/`onDeactivate()` lifecycle. Components are pure UI (no business logic) with callback pattern. `AppState` is a plain mutable object passed by reference — no reactivity framework.
 
-6. **Multi-player benchmark flow** — Users add AI models as "Players" via ADD PLAYER (up to 4). Clicking PLAY runs 5 rounds: each round all players call LLM in parallel, then compete in the same simulation. Each model's improvement prompt includes the **full evolution history** (score progression table, per-ship details, trend detection, best + latest code). A round slider lets users replay any round's trajectory. Score progression chart shows learning curves.
+6. **Multi-player benchmark flow** — Users add AI models as "Players" via ADD PLAYER (up to 4). Clicking PLAY runs 10 rounds: each round all players call LLM in parallel, then compete in the same simulation. Each model's improvement prompt includes the **full evolution history** (score progression table, per-ship details, trend detection, best + latest code). A round slider lets users replay any round's trajectory. Score progression chart shows learning curves.
 
 7. **Full-history iteration** — The improvement prompt compresses all previous rounds into: (1) score progression table, (2) compact per-ship summaries, (3) IMPROVING/FLAT/REGRESSING trend detection, (4) best-scoring code + latest code. On regression, the model is warned to start from the best code. Error fallback uses the historical best code, not just the previous round.
 

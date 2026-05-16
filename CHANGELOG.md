@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.7.0] - 2026-05-16
+
+### Added
+- **100-seed 排行榜** — `LEADERBOARD_SEEDS` 从 10 扩展至 100（种子 1–100 全覆盖）
+- **种子热力图 (Heatmap)** — 取代原宽表格，每个模型展示 10×10 格子可视化：颜色从深棕（低分）渐变到金色（高分），待跑格灰色，运行中格显示当前轮次 + 脉冲动画，点格展示详情面板
+- **进度条** — 运行时显示 "X / N seeds (Y%)"，颜色填充随完成比例增长
+- **CSV 导出** — EXPORT CSV 按钮：导出排名表（rank/model/provider/avg/median/stddev/min/max/seeds，以及每个 seed 分数列），下载为带日期的 CSV 文件
+- **模型进度小条** — 每个热力图下方有一条细进度条（按模型颜色）表示该模型已完成的 seed 比例
+
+### Changed
+- **`TOTAL_ROUNDS` 从 5 升至 10** — 每次基准测试从 5 轮迭代改为 10 轮，给 LLM 更多改进机会
+- **`computeConfigHash` 纳入 `TOTAL_ROUNDS`** — 轮次变化时自动令旧缓存失效
+- **DB 升级至 v4** — v3→v4 自动清空 `leaderboard-runs` 中不兼容的旧缓存数据
+- **`onSeedProgress` 回调现在更新热力图** — 运行中单元格实时显示 R1/R2... 轮次
+- **详情面板标题** — "SCORE PROGRESSION (20 ROUNDS)" 修正为动态 `TOTAL_ROUNDS` 值
+
 ## [0.6.0] - 2026-05-16
 
 ### Added
