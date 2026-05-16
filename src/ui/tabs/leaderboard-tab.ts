@@ -40,7 +40,14 @@ export class LeaderboardTab implements Tab {
   constructor(state: AppState) {
     this.state = state;
     this.el = document.createElement('div');
+    this.el.className = 'lb-tab-root';
     this.el.innerHTML = `
+      <div class="lb-mode-bar">
+        <button class="lb-mode-btn lb-mode-btn--active" data-mode="benchmark">BENCHMARK</button>
+        <button class="lb-mode-btn" data-mode="elo">ELO</button>
+      </div>
+
+      <div id="lb-benchmark-view">
       <div class="leaderboard-layout">
         <div class="leaderboard-controls">
           <div class="panel-section">
@@ -100,6 +107,17 @@ export class LeaderboardTab implements Tab {
           <div id="lb-detail" class="lb-detail" style="display:none;"></div>
         </div>
       </div>
+      </div>
+
+      <div id="lb-elo-view" style="display:none;">
+        <div class="lb-elo-placeholder">
+          <div class="lb-elo-placeholder-title">ELO MODE</div>
+          <div class="lb-elo-placeholder-body">
+            Head-to-head bot battles with Elo ratings.<br>
+            Coming in Phase 8.
+          </div>
+        </div>
+      </div>
     `;
 
     this.modelListEl = this.el.querySelector('#lb-model-list')!;
@@ -118,6 +136,16 @@ export class LeaderboardTab implements Tab {
 
     this.el.querySelector('#lb-sel-all')!.addEventListener('click', () => this.selectAll(true));
     this.el.querySelector('#lb-sel-none')!.addEventListener('click', () => this.selectAll(false));
+
+    this.el.querySelectorAll<HTMLButtonElement>('.lb-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode!;
+        this.el.querySelectorAll('.lb-mode-btn').forEach(b => b.classList.remove('lb-mode-btn--active'));
+        btn.classList.add('lb-mode-btn--active');
+        (this.el.querySelector('#lb-benchmark-view') as HTMLElement).style.display = mode === 'benchmark' ? '' : 'none';
+        (this.el.querySelector('#lb-elo-view') as HTMLElement).style.display = mode === 'elo' ? '' : 'none';
+      });
+    });
   }
 
   async onActivate(): Promise<void> {
