@@ -184,6 +184,46 @@ export interface SimulatorRunRecord {
   bestRound: number;              // 1-indexed
 }
 
+// ====== PVP Types ======
+export interface PvpBot {
+  id?: number;
+  name: string;
+  model: string;
+  provider: string;
+  code: string;
+  sourceSeed: number;
+  sourceRound: number;
+  sourceScore: number;
+  elo: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  matches: number;
+  createdAt: number;
+}
+
+export interface PvpMatchRecord {
+  id?: number;
+  timestamp: number;
+  seed: number;
+  botIds: number[];
+  botNamesSnapshot: string[];
+  perRotationScores: number[][];
+  avgScores: number[];
+  rank: number[];
+  eloBefore: number[];
+  eloAfter: number[];
+  ticksPerRotation: TickRecord[][];
+}
+
+export interface MatchRunResult {
+  avgScores: number[];
+  perRotationScores: number[][];
+  ticksPerRotation: TickRecord[][];
+  rank: number[];
+  eloChanges: number[];
+}
+
 // ====== Leaderboard Persistence ======
 export interface LeaderboardRunRecord {
   id?: number;
