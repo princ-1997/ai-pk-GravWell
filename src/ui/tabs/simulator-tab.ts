@@ -6,6 +6,7 @@ import { MultiPlayerIterationEngine, TOTAL_ROUNDS } from '../../llm/multi-player
 import { ApiConfig } from '../components/api-config';
 import { CodeEditor } from '../components/code-editor';
 import { ReplayControls } from '../components/replay-controls';
+import { putSimulatorRun, getLatestRunsByCacheKey } from '../../persistence/simulator-store';
 
 export class SimulatorTab implements Tab {
   el: HTMLElement;
@@ -27,6 +28,7 @@ export class SimulatorTab implements Tab {
     this.state = state;
     this.el = document.createElement('div');
     this.buildLayout();
+    this.hydrateCache();
   }
 
   private buildLayout(): void {
@@ -193,6 +195,52 @@ export class SimulatorTab implements Tab {
     }
   }
 
+  private async hydrateCache(): Promise<void> {
+    try {
+      const byKey = await getLatestRunsByCacheKey();
+      for (const [cacheKey, record] of byKey) {
+        if (!this.state.playerCache.has(cacheKey)) {
+          this.state.playerCache.set(cacheKey, {
+            seed: record.seed,
+            rounds: record.rounds,
+          });
+        }
+      }
+    } catch {
+      // Non-fatal — DB may not exist yet on first load
+    }
+  }
+
+  private async persistRunsToDB(players: import('../../types').Player[], results: RoundResult[]): Promise<void> {
+    const seed = this.state.config.seed;
+    for (const player of players) {
+      const rounds = results.map(rr => {
+        const pd = rr.players.find(p => p.playerId === player.id);
+        return { code: pd?.code ?? '', score: pd?.score ?? 0 };
+      });
+      let bestScore = -1;
+      let bestRound = 1;
+      rounds.forEach((r, i) => {
+        if (r.score > bestScore) { bestScore = r.score; bestRound = i + 1; }
+      });
+      const cacheKey = this.playerCacheKey(player);
+      try {
+        await putSimulatorRun({
+          cacheKey,
+          timestamp: Date.now(),
+          seed,
+          provider: player.provider ?? 'baseline',
+          model: player.model,
+          rounds,
+          bestScore,
+          bestRound,
+        });
+      } catch {
+        // Non-fatal — don't disrupt UI if storage fails
+      }
+    }
+  }
+
   // ====== Benchmark (Multi-Player Iteration) ======
   private async startBenchmark(): Promise<void> {
     if (this.state.players.length === 0) {
@@ -305,8 +353,9 @@ export class SimulatorTab implements Tab {
           return;
         }
 
-        // Save all players' results to cache
+        // Save all players' results to in-memory cache and IndexedDB
         this.saveToCache(players, results);
+        this.persistRunsToDB(players, results);
 
         // Find best round per player
         const summary = players.map(p => {
