@@ -65,12 +65,12 @@ export interface DecideContext {
   radius: number;
   tick: number;
   totalTicks: number;
-  seed: number;
   // Helper functions
   distanceTo(a: Vec2, b: Vec2): number;
   nearestSun(ship: Vec2): Sun;
   nearestSunDist(ship: Vec2): number;
   push(from: Vec2, to: Vec2, strength: number): Vec2;
+  seek(target: Vec2, power?: number): Vec2;
   nearestAlly(): { id: string; x: number; y: number; vx: number; vy: number } | null;
 }
 

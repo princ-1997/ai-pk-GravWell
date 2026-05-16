@@ -95,7 +95,8 @@ The function contract is unchanged:
 - function decide(ctx) receives the same ctx object
 - Return {x, y} thrust vector; magnitude is capped to 1.0
 - No persistent state between calls
-- ctx.prediction has the next 20 zone positions for trajectory planning`;
+- ctx.prediction has the next 5 zone positions for trajectory planning
+- ctx.seek(target, power=1) reduces overshoot by correcting for current velocity`;
 
   // ── Build user prompt ──
   // Include best code + latest code (if different)

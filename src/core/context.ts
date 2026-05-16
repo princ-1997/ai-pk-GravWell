@@ -53,7 +53,6 @@ export function buildContext(
     radius: zone.radius,
     tick,
     totalTicks,
-    seed,
 
     distanceTo(a: Vec2, b: Vec2): number {
       return distance(a, b);
@@ -90,6 +89,22 @@ export function buildContext(
       if (dist === 0) return { x: 0, y: 0 };
       const scale = Math.min(strength, 1) / dist;
       return { x: dx * scale, y: dy * scale };
+    },
+
+    seek(target: Vec2, power: number = 1): Vec2 {
+      const dx = target.x - shipSnapshot.x;
+      const dy = target.y - shipSnapshot.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 0.001) return { x: 0, y: 0 };
+      const p = Math.min(power, 1);
+      const desiredX = (dx / dist) * p;
+      const desiredY = (dy / dist) * p;
+      // Subtract half current velocity to reduce overshoot
+      const corrX = desiredX - shipSnapshot.vx * 0.5;
+      const corrY = desiredY - shipSnapshot.vy * 0.5;
+      const len = Math.sqrt(corrX * corrX + corrY * corrY);
+      if (len > 1) return { x: corrX / len, y: corrY / len };
+      return { x: corrX, y: corrY };
     },
 
     nearestAlly(): { id: string; x: number; y: number; vx: number; vy: number } | null {

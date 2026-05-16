@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.2] - 2026-05-16
+
+### Changed
+- **Prompt 重设计** — 重写 `src/llm/prompt-builder.ts`，以更好地测试 LLM 的编码能力和迭代进化能力：
+  - `predictionTicks` 从 20 降至 **5**：缩短预测窗口，强模型才能写出引力感知的轨迹规划，弱模型只能朝当前区域冲，区分度明显提升
+  - 移除 `ctx.seed`：屏蔽 Lissajous 路径的全局预算能力，bot 只能利用运行时信息
+  - 新增 `ctx.seek(target, power?)` helper：内置速度补偿（减去 0.5× 当前速度），减少样板代码，让 LLM 专注于策略而非三角函数
+  - 新增多船分工提示：用 `ctx.ship.id` 区分 S1/S2/S3 角色，为跨轮次进化创造策略轴
+  - 重写 User Prompt 为 4 个具体权衡问题（预测领先距、燃料预算、恒星危险/弹弓、船队分工）
+- **ImprovementPrompt 同步更新** — 修正硬编码 "20" → "5"，补充 `ctx.seek` 说明
+
+### Fixed
+- `DecideContext` 类型移除 `seed` 字段，`context.ts` 同步移除，防止 bot 通过 seed 预算完整路径
+
 ## [0.5.1] - 2026-05-16
 
 ### Changed

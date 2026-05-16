@@ -8,7 +8,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   fuelStart: 20,
   maxThrust: 1,
   conditionMax: 10,
-  predictionTicks: 20,
+  predictionTicks: 5,
   arenaSize: 100,
   gravityConstant: 0.003,
   gravitySoftening: 0.002,
