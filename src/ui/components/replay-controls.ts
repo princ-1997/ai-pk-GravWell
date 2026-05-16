@@ -17,6 +17,7 @@ export class ReplayControls {
   private roundLabel: HTMLElement;
   private chartCanvas: HTMLCanvasElement;
   private callbacks: ReplayControlsCallbacks;
+  private lastChartData: { roundResults: RoundResult[]; players: Player[] } | null = null;
 
   constructor(parent: HTMLElement, state: AppState, callbacks: ReplayControlsCallbacks) {
     this.state = state;
@@ -129,6 +130,9 @@ export class ReplayControls {
   }
 
   renderScoreChart(roundResults: RoundResult[], players: Player[]): void {
+    // Store latest data so chart can be re-rendered on tab reactivation
+    this.lastChartData = { roundResults, players };
+
     const canvas = this.chartCanvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -136,6 +140,10 @@ export class ReplayControls {
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
+
+    // Skip rendering if canvas is hidden (e.g. tab not active) — dimensions are 0
+    if (w === 0 || h === 0) return;
+
     canvas.width = w * dpr;
     canvas.height = h * dpr;
     ctx.scale(dpr, dpr);
@@ -209,6 +217,13 @@ export class ReplayControls {
         ctx.arc(x, y, 2.5, 0, Math.PI * 2);
         ctx.fill();
       }
+    }
+  }
+
+  /** Re-render the chart from cached data (call on tab reactivation). */
+  refreshChart(): void {
+    if (this.lastChartData) {
+      this.renderScoreChart(this.lastChartData.roundResults, this.lastChartData.players);
     }
   }
 }

@@ -171,6 +171,7 @@ export class GameRenderer {
   renderInitial(suns: ReadonlyArray<Sun>, zone: { x: number; y: number; radius: number }): void {
     const w = this.canvas.width / (window.devicePixelRatio || 1);
     const h = this.canvas.height / (window.devicePixelRatio || 1);
+    if (w === 0 || h === 0) return; // Canvas not laid out yet
     const ctx = this.ctx;
 
     ctx.fillStyle = THEME.bg;
