@@ -816,7 +816,6 @@ select.field-input {
 }
 
 .lb-tab-root {
-  display: flex;
   flex-direction: column;
   width: 100%;
   height: 100%;
@@ -956,56 +955,85 @@ select.field-input {
 }
 
 /* Seed score matrix */
-.lb-matrix-section {
+/* Heatmap section */
+.lb-heatmap-section {
   margin-bottom: 16px;
 }
 
-.lb-matrix-wrap {
-  overflow-x: auto;
+.lb-heatmap-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
 }
 
-.lb-matrix {
-  border-collapse: collapse;
+.lb-hmap-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lb-hmap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.lb-hmap-name {
+  font-weight: bold;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-hmap-meta {
+  color: var(--text-dim);
   font-size: 10px;
   white-space: nowrap;
 }
 
-.lb-matrix th,
-.lb-matrix td {
-  padding: 4px 6px;
-  border: 1px solid var(--border);
-  text-align: center;
-  min-width: 44px;
-}
-
-.lb-matrix th {
-  color: var(--text-dim);
-  font-size: 9px;
-  text-transform: uppercase;
-  background: var(--bg-panel-alt);
-}
-
-.lb-matrix td.lb-model-cell {
-  text-align: left;
-  color: var(--text);
-  font-weight: bold;
-  max-width: 120px;
+.lb-hmap-progress {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.lb-matrix td.lb-avg-cell {
-  color: var(--gold);
-  font-weight: bold;
-  background: rgba(255, 215, 0, 0.05);
+.lb-hmap-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
 }
 
-.lb-cell--pending {
-  color: var(--text-muted);
+.lb-hmap-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 22px);
+  grid-template-rows: repeat(10, 22px);
+  gap: 2px;
 }
 
-.lb-cell--running {
+.lb-hcell {
+  width: 22px;
+  height: 22px;
+  border-radius: 2px;
+  font-size: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+}
+
+.lb-hcell--pending {
+  background: #1a1a1a;
+}
+
+.lb-hcell--running {
+  background: #3a2a00;
   color: var(--gold-bright);
+  font-size: 6px;
   animation: lb-pulse 1s ease-in-out infinite;
 }
 
@@ -1014,24 +1042,37 @@ select.field-input {
   50% { opacity: 1; }
 }
 
-.lb-cell--complete {
-  color: var(--text);
+.lb-hcell--done {
   cursor: pointer;
+  transition: transform 0.1s;
 }
 
-.lb-cell--complete:hover {
-  color: var(--gold);
-  background: rgba(255, 215, 0, 0.1);
+.lb-hcell--done:hover {
+  transform: scale(1.3);
+  z-index: 10;
+  border-radius: 3px;
 }
 
-.lb-cell--cached {
+/* Progress bar */
+.lb-progress-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.lb-progress-fill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.lb-progress-text {
+  font-size: 10px;
   color: var(--text-dim);
-  cursor: pointer;
-}
-
-.lb-cell--cached:hover {
-  color: var(--gold);
-  background: rgba(255, 215, 0, 0.1);
+  margin-top: 3px;
 }
 
 /* Bar chart */

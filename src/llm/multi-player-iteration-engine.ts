@@ -7,7 +7,7 @@ import { parseDecideCode } from './code-parser';
 import { createDecideFunction, BASELINE_ZONE_SEEKER_CODE } from './sandbox';
 import { generatePlayerDiagnostic, type DiagnosticReport } from './diagnostic';
 
-export const TOTAL_ROUNDS = 5;
+export const TOTAL_ROUNDS = 10;
 
 export interface MPIterationCallbacks {
   onRoundStart: (round: number, totalRounds: number) => void;

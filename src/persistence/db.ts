@@ -1,7 +1,8 @@
 import type { GameConfig } from '../types';
+import { TOTAL_ROUNDS } from '../llm/multi-player-iteration-engine';
 
 const DB_NAME = 'gravwell-gpt';
-const DB_VERSION = 3; // v3: add simulator-runs store for per-session benchmark persistence
+const DB_VERSION = 4; // v4: TOTAL_ROUNDS added to configHash, invalidates old cached runs
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -39,6 +40,15 @@ export function openDB(): Promise<IDBDatabase> {
         simStore.createIndex('model', 'model', { unique: false });
         simStore.createIndex('timestamp', 'timestamp', { unique: false });
       }
+
+      // v3→v4: TOTAL_ROUNDS now part of configHash — clear leaderboard-runs cache
+      if (oldVersion < 4) {
+        if (db.objectStoreNames.contains('leaderboard-runs')) {
+          db.transaction(['leaderboard-runs'], 'readwrite')
+            .objectStore('leaderboard-runs')
+            .clear();
+        }
+      }
     };
 
     req.onsuccess = () => {
@@ -52,7 +62,7 @@ export function openDB(): Promise<IDBDatabase> {
 }
 
 /**
- * djb2 hash of physics-affecting config fields.
+ * djb2 hash of physics-affecting config fields + TOTAL_ROUNDS.
  * Excludes seed (stored separately) and playerCount (always 1 for leaderboard).
  */
 export function computeConfigHash(config: GameConfig): string {
@@ -68,6 +78,7 @@ export function computeConfigHash(config: GameConfig): string {
     config.gravitySoftening,
     config.sunCount,
     config.zoneBaseRadius,
+    TOTAL_ROUNDS,
   ].join('|');
 
   let hash = 5381;

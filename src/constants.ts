@@ -18,7 +18,7 @@ export const DEFAULT_CONFIG: GameConfig = {
 
 export const MAX_PLAYERS = 4;
 
-export const LEADERBOARD_SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+export const LEADERBOARD_SEEDS: number[] = Array.from({ length: 100 }, (_, i) => i + 1);
 export const LEADERBOARD_ROUNDS = 5;
 
 export const PLAYER_COLORS = [

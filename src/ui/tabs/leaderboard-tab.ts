@@ -1,6 +1,7 @@
 import type { AppState, Tab } from '../app';
 import type { ApiProvider, LeaderboardRunRecord } from '../../types';
 import { LEADERBOARD_SEEDS } from '../../constants';
+import { TOTAL_ROUNDS } from '../../llm/multi-player-iteration-engine';
 import { computeConfigHash, makeCacheKey } from '../../persistence/db';
 import { getAllRuns, deleteAllRuns, getRunByCacheKey } from '../../persistence/leaderboard-store';
 import {
@@ -19,10 +20,14 @@ export class LeaderboardTab implements Tab {
   private modelListEl!: HTMLElement;
   private runBtn!: HTMLButtonElement;
   private stopBtn!: HTMLButtonElement;
+  private exportBtn!: HTMLButtonElement;
   private statusEl!: HTMLElement;
+  private progressBarEl!: HTMLElement;
+  private progressFillEl!: HTMLElement;
+  private progressTextEl!: HTMLElement;
   private clearBtn!: HTMLButtonElement;
   private rankingBody!: HTMLElement;
-  private matrixWrap!: HTMLElement;
+  private heatmapWrap!: HTMLElement;
   private chartCanvas!: HTMLCanvasElement;
   private detailEl!: HTMLElement;
 
@@ -66,11 +71,18 @@ export class LeaderboardTab implements Tab {
               <button class="btn btn-outline" id="lb-btn-stop" style="display:none;">STOP</button>
             </div>
             <div id="lb-status" class="lb-status"></div>
+            <div id="lb-progress-bar" class="lb-progress-bar" style="display:none;">
+              <div id="lb-progress-fill" class="lb-progress-fill"></div>
+            </div>
+            <div id="lb-progress-text" class="lb-progress-text"></div>
           </div>
 
           <div class="panel-section">
-            <div class="panel-section-title">CACHE</div>
-            <button class="btn btn-outline" id="lb-btn-clear" style="font-size:10px;">CLEAR ALL CACHED DATA</button>
+            <div class="panel-section-title">EXPORT / CACHE</div>
+            <div class="btn-row">
+              <button class="btn btn-outline" id="lb-btn-export" style="font-size:10px;">EXPORT CSV</button>
+              <button class="btn btn-outline" id="lb-btn-clear" style="font-size:10px;">CLEAR CACHE</button>
+            </div>
           </div>
         </div>
 
@@ -94,9 +106,9 @@ export class LeaderboardTab implements Tab {
             </table>
           </div>
 
-          <div class="lb-matrix-section panel-section">
-            <div class="panel-section-title">SEED SCORE MATRIX</div>
-            <div class="lb-matrix-wrap" id="lb-matrix-wrap"></div>
+          <div class="lb-heatmap-section panel-section">
+            <div class="panel-section-title">SEED HEATMAP (${LEADERBOARD_SEEDS.length} SEEDS)</div>
+            <div id="lb-heatmap-wrap" class="lb-heatmap-wrap"></div>
           </div>
 
           <div class="lb-chart-section panel-section">
@@ -123,15 +135,20 @@ export class LeaderboardTab implements Tab {
     this.modelListEl = this.el.querySelector('#lb-model-list')!;
     this.runBtn = this.el.querySelector('#lb-btn-run') as HTMLButtonElement;
     this.stopBtn = this.el.querySelector('#lb-btn-stop') as HTMLButtonElement;
+    this.exportBtn = this.el.querySelector('#lb-btn-export') as HTMLButtonElement;
     this.statusEl = this.el.querySelector('#lb-status')!;
+    this.progressBarEl = this.el.querySelector('#lb-progress-bar')!;
+    this.progressFillEl = this.el.querySelector('#lb-progress-fill')!;
+    this.progressTextEl = this.el.querySelector('#lb-progress-text')!;
     this.clearBtn = this.el.querySelector('#lb-btn-clear') as HTMLButtonElement;
     this.rankingBody = this.el.querySelector('#lb-ranking-body')!;
-    this.matrixWrap = this.el.querySelector('#lb-matrix-wrap')!;
+    this.heatmapWrap = this.el.querySelector('#lb-heatmap-wrap')!;
     this.chartCanvas = this.el.querySelector('#lb-chart') as HTMLCanvasElement;
     this.detailEl = this.el.querySelector('#lb-detail')!;
 
     this.runBtn.addEventListener('click', () => this.startLeaderboard());
     this.stopBtn.addEventListener('click', () => this.stopLeaderboard());
+    this.exportBtn.addEventListener('click', () => this.exportCsv());
     this.clearBtn.addEventListener('click', () => this.clearCache());
 
     this.el.querySelector('#lb-sel-all')!.addEventListener('click', () => this.selectAll(true));
@@ -264,7 +281,6 @@ export class LeaderboardTab implements Tab {
       return;
     }
 
-    // Validate API keys
     for (const e of entries) {
       if (!e.apiKey) {
         this.statusEl.innerHTML = `<span style="color: var(--red);">Missing API key for ${e.model}. Configure in SIMULATOR tab.</span>`;
@@ -275,8 +291,11 @@ export class LeaderboardTab implements Tab {
     this.running = true;
     this.runBtn.style.display = 'none';
     this.stopBtn.style.display = 'inline-block';
+    this.progressBarEl.style.display = 'block';
 
     this.runner = new LeaderboardRunner();
+    let globalDone = 0;
+    const totalSeeds = LEADERBOARD_SEEDS.length * entries.length;
 
     await this.runner.run(entries, this.state.config, {
       onModelStart: (model, mi, total) => {
@@ -307,13 +326,18 @@ export class LeaderboardTab implements Tab {
         this.statusEl.innerHTML =
           `<span class="lb-status-model">${model}</span><br>` +
           `<span class="lb-status-seed">Seed ${seed}</span> — Round ${round + 1}/${totalRounds}`;
+        this.renderHeatmaps();
       },
 
       onSeedComplete: (model, seed, score, fromCache) => {
         const scoreMap = this.seedScores.get(model) ?? new Map();
         scoreMap.set(seed, { score, cached: fromCache });
         this.seedScores.set(model, scoreMap);
-        this.renderMatrix();
+        globalDone++;
+        const pct = Math.round((globalDone / totalSeeds) * 100);
+        this.progressFillEl.style.width = `${pct}%`;
+        this.progressTextEl.textContent = `${globalDone} / ${totalSeeds} seeds (${pct}%)`;
+        this.renderHeatmaps();
       },
 
       onModelComplete: (model, result) => {
@@ -356,15 +380,61 @@ export class LeaderboardTab implements Tab {
     this.results.clear();
     this.seedScores.clear();
     this.activeCell = null;
+    this.progressFillEl.style.width = '0%';
+    this.progressTextEl.textContent = '';
+    this.progressBarEl.style.display = 'none';
     this.renderAll();
     this.statusEl.innerHTML = `<span style="color:var(--text-dim);">Cache cleared.</span>`;
+  }
+
+  // ====== CSV Export ======
+
+  private exportCsv(): void {
+    const sorted = [...this.results.values()].sort((a, b) => b.avgScore - a.avgScore);
+    if (sorted.length === 0) {
+      this.statusEl.innerHTML = `<span style="color:var(--text-dim);">No data to export.</span>`;
+      return;
+    }
+
+    // Header row
+    const seedHeaders = LEADERBOARD_SEEDS.map(s => `seed_${s}`).join(',');
+    const header = `rank,model,provider,avg_score,median,stddev,min,max,seeds_completed,${seedHeaders}`;
+
+    const rows = sorted.map((r, i) => {
+      const scoreMap = this.seedScores.get(r.model) ?? new Map<number, { score: number }>();
+      const seedVals = LEADERBOARD_SEEDS.map(s => {
+        const e = scoreMap.get(s);
+        return e != null ? e.score : '';
+      }).join(',');
+      return [
+        i + 1,
+        `"${r.model}"`,
+        r.provider,
+        r.avgScore.toFixed(2),
+        r.medianScore.toFixed(2),
+        r.stddev.toFixed(2),
+        r.minScore,
+        r.maxScore,
+        r.scores.length,
+        seedVals,
+      ].join(',');
+    });
+
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gravwell-leaderboard-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // ====== Render All ======
 
   private renderAll(): void {
     this.renderRankingTable();
-    this.renderMatrix();
+    this.renderHeatmaps();
     this.renderChart();
   }
 
@@ -394,49 +464,77 @@ export class LeaderboardTab implements Tab {
     }).join('');
   }
 
-  // ====== Seed Score Matrix ======
+  // ====== Heatmap ======
 
-  private renderMatrix(): void {
+  private renderHeatmaps(): void {
     const models = [...this.seedScores.keys()];
     if (models.length === 0) {
-      this.matrixWrap.innerHTML = `<div style="color:var(--text-muted); font-size:11px;">No data yet.</div>`;
+      this.heatmapWrap.innerHTML = `<div style="color:var(--text-muted); font-size:11px;">No data yet.</div>`;
       return;
     }
 
-    const header = `<tr><th>Model</th>${LEADERBOARD_SEEDS.map(s => `<th>S${s}</th>`).join('')}<th>Avg</th></tr>`;
+    // Compute global max for consistent color scaling
+    let globalMax = 1;
+    for (const scoreMap of this.seedScores.values()) {
+      for (const entry of scoreMap.values()) {
+        if (entry.score > globalMax) globalMax = entry.score;
+      }
+    }
 
-    const rows = models.map(model => {
+    const COLS = 10;
+    const heatmaps = models.map(model => {
       const scoreMap = this.seedScores.get(model)!;
-      let sum = 0;
-      let count = 0;
+      const player = this.state.players.find(p => p.model === model);
+      const modelColor = player?.color ?? '#FFD700';
+      const modelShort = model.length > 22 ? model.slice(0, 20) + '..' : model;
+      const result = this.results.get(model);
+      const avgLabel = result ? `avg ${result.avgScore.toFixed(1)}` : '';
+      const completedCount = scoreMap.size;
 
-      const cells = LEADERBOARD_SEEDS.map(seed => {
+      const cells = LEADERBOARD_SEEDS.map((seed, idx) => {
         const entry = scoreMap.get(seed);
+        const row = Math.floor(idx / COLS);
+        const col = idx % COLS;
+
         if (!entry) {
-          if (this.runningModel === model && this.runningSeed === seed && this.running) {
-            return `<td class="lb-cell--running">R${this.runningRound + 1}</td>`;
+          // Pending or running
+          if (this.running && this.runningModel === model && this.runningSeed === seed) {
+            const roundLabel = this.runningTotalRounds > 0
+              ? `R${this.runningRound + 1}/${this.runningTotalRounds}`
+              : '...';
+            return `<div class="lb-hcell lb-hcell--running" style="grid-row:${row+1};grid-column:${col+1};" title="Seed ${seed}: running (${roundLabel})">${roundLabel}</div>`;
           }
-          return `<td class="lb-cell--pending">--</td>`;
+          return `<div class="lb-hcell lb-hcell--pending" style="grid-row:${row+1};grid-column:${col+1};" title="Seed ${seed}: pending"></div>`;
         }
-        sum += entry.score;
-        count++;
-        const cls = entry.cached ? 'lb-cell--cached' : 'lb-cell--complete';
-        return `<td class="${cls}" data-model="${model}" data-seed="${seed}">${entry.score}</td>`;
+
+        const t = Math.min(entry.score / globalMax, 1);
+        const bg = lerpColor('#1a0f00', '#FFD700', t);
+        const fg = t > 0.55 ? '#000' : '#FFD700';
+        const cachedMark = entry.cached ? '·' : '';
+        return `<div class="lb-hcell lb-hcell--done" style="grid-row:${row+1};grid-column:${col+1};background:${bg};color:${fg};" data-model="${model}" data-seed="${seed}" title="Seed ${seed}: ${entry.score}${entry.cached ? ' (cached)' : ''}">${entry.score}${cachedMark}</div>`;
       }).join('');
 
-      const avg = count > 0 ? (sum / count).toFixed(1) : '--';
-      const modelShort = model.length > 18 ? model.slice(0, 16) + '..' : model;
+      const completedBar = `<div class="lb-hmap-progress">
+        <div class="lb-hmap-progress-fill" style="width:${(completedCount / LEADERBOARD_SEEDS.length * 100).toFixed(0)}%; background:${modelColor};"></div>
+      </div>`;
 
-      return `<tr><td class="lb-model-cell" title="${model}">${modelShort}</td>${cells}<td class="lb-avg-cell">${avg}</td></tr>`;
-    }).join('');
+      return `<div class="lb-hmap-block">
+        <div class="lb-hmap-header">
+          <span class="lb-hmap-name" style="color:${modelColor};">${modelShort}</span>
+          <span class="lb-hmap-meta">${completedCount}/${LEADERBOARD_SEEDS.length} ${avgLabel}</span>
+        </div>
+        ${completedBar}
+        <div class="lb-hmap-grid">${cells}</div>
+      </div>`;
+    });
 
-    this.matrixWrap.innerHTML = `<table class="lb-matrix"><thead>${header}</thead><tbody>${rows}</tbody></table>`;
+    this.heatmapWrap.innerHTML = heatmaps.join('');
 
-    // Add click handlers to completed cells
-    this.matrixWrap.querySelectorAll<HTMLTableCellElement>('.lb-cell--complete, .lb-cell--cached').forEach(td => {
-      td.addEventListener('click', () => {
-        const model = td.dataset.model!;
-        const seed = parseInt(td.dataset.seed!);
+    // Attach click handlers
+    this.heatmapWrap.querySelectorAll<HTMLElement>('.lb-hcell--done').forEach(cell => {
+      cell.addEventListener('click', () => {
+        const model = cell.dataset.model!;
+        const seed = parseInt(cell.dataset.seed!);
         this.showDetail(model, seed);
       });
     });
@@ -452,6 +550,7 @@ export class LeaderboardTab implements Tab {
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
+    if (w === 0 || h === 0) return;
     canvas.width = w * dpr;
     canvas.height = h * dpr;
     ctx.scale(dpr, dpr);
@@ -466,7 +565,6 @@ export class LeaderboardTab implements Tab {
     const chartH = h - pad.top - pad.bottom;
     const barH = Math.min(28, chartH / sorted.length - 4);
 
-    // Find the player color for each model
     const modelColors = new Map<string, string>();
     for (const p of this.state.players) {
       modelColors.set(p.model, p.color);
@@ -478,13 +576,12 @@ export class LeaderboardTab implements Tab {
       const barWidth = (r.avgScore / maxScore) * chartW;
       const color = modelColors.get(r.model) || '#FFD700';
 
-      // Bar
       ctx.fillStyle = color;
       ctx.globalAlpha = 0.7;
       ctx.fillRect(pad.left, y, barWidth, barH);
       ctx.globalAlpha = 1;
 
-      // Score range (min-max) as thin line
+      // Min–max range line
       const minX = pad.left + (r.minScore / maxScore) * chartW;
       const maxX = pad.left + (r.maxScore / maxScore) * chartW;
       ctx.strokeStyle = color;
@@ -494,7 +591,6 @@ export class LeaderboardTab implements Tab {
       ctx.lineTo(maxX, y + barH / 2);
       ctx.stroke();
 
-      // Label
       const label = r.model.length > 20 ? r.model.slice(0, 18) + '..' : r.model;
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '10px Courier New';
@@ -526,7 +622,7 @@ export class LeaderboardTab implements Tab {
         &nbsp;|&nbsp; Tokens: ${(record.totalTokens.input + record.totalTokens.output).toLocaleString()}
         &nbsp;|&nbsp; ${new Date(record.timestamp).toLocaleString()}
       </div>
-      <div class="panel-section-title" style="margin-top:8px;">SCORE PROGRESSION (20 ROUNDS)</div>
+      <div class="panel-section-title" style="margin-top:8px;">SCORE PROGRESSION (${TOTAL_ROUNDS} ROUNDS)</div>
       <canvas id="lb-detail-chart"></canvas>
       <div class="lb-detail-rounds" id="lb-detail-rounds"></div>
     `;
@@ -536,10 +632,8 @@ export class LeaderboardTab implements Tab {
       this.activeCell = null;
     });
 
-    // Render score progression chart
     this.renderDetailChart(record);
 
-    // Render round score tags
     const roundsEl = this.detailEl.querySelector('#lb-detail-rounds')!;
     roundsEl.innerHTML = record.roundResults.map((rr, i) => {
       const score = rr.players[0]?.score ?? 0;
@@ -571,14 +665,12 @@ export class LeaderboardTab implements Tab {
     const chartW = w - pad.left - pad.right;
     const chartH = h - pad.top - pad.bottom;
 
-    // Y-axis labels
     ctx.fillStyle = '#8B7500';
     ctx.font = '9px Courier New';
     ctx.textAlign = 'right';
     ctx.fillText(String(maxScore), pad.left - 4, pad.top + 8);
     ctx.fillText('0', pad.left - 4, h - pad.bottom + 3);
 
-    // Grid line
     ctx.strokeStyle = 'rgba(255, 215, 0, 0.15)';
     ctx.beginPath();
     ctx.moveTo(pad.left, pad.top);
@@ -586,7 +678,6 @@ export class LeaderboardTab implements Tab {
     ctx.lineTo(w - pad.right, h - pad.bottom);
     ctx.stroke();
 
-    // Line chart
     ctx.strokeStyle = '#FFD700';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -598,7 +689,6 @@ export class LeaderboardTab implements Tab {
     }
     ctx.stroke();
 
-    // Dots
     ctx.fillStyle = '#FFD700';
     for (let i = 0; i < scores.length; i++) {
       const x = pad.left + (i / (scores.length - 1 || 1)) * chartW;
@@ -608,13 +698,27 @@ export class LeaderboardTab implements Tab {
       ctx.fill();
     }
 
-    // X-axis labels
     ctx.fillStyle = '#8B7500';
     ctx.textAlign = 'center';
-    const step = Math.max(1, Math.floor(scores.length / 10));
-    for (let i = 0; i < scores.length; i += step) {
+    for (let i = 0; i < scores.length; i++) {
       const x = pad.left + (i / (scores.length - 1 || 1)) * chartW;
       ctx.fillText(`R${i + 1}`, x, h - 4);
     }
   }
+}
+
+// ====== Color Utility ======
+
+function lerpColor(hex1: string, hex2: string, t: number): string {
+  const parse = (h: string) => [
+    parseInt(h.slice(1, 3), 16),
+    parseInt(h.slice(3, 5), 16),
+    parseInt(h.slice(5, 7), 16),
+  ];
+  const [r1, g1, b1] = parse(hex1);
+  const [r2, g2, b2] = parse(hex2);
+  const r = Math.round(r1 + (r2 - r1) * t);
+  const g = Math.round(g1 + (g2 - g1) * t);
+  const b = Math.round(b1 + (b2 - b1) * t);
+  return `rgb(${r},${g},${b})`;
 }
