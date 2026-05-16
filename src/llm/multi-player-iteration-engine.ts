@@ -16,6 +16,7 @@ export interface MPIterationCallbacks {
   onError: (round: number, playerId: number, error: string) => void;
   onPlayerLLMStart: (round: number, playerId: number) => void;
   onPlayerLLMComplete: (round: number, playerId: number) => void;
+  onPlayerCached?: (round: number, playerId: number) => void;
 }
 
 interface PlayerState {
@@ -36,7 +37,8 @@ export class MultiPlayerIterationEngine {
 
   async run(
     gameConfig: GameConfig,
-    players: Player[]
+    players: Player[],
+    preloadedRounds?: Map<number, string[]>  // playerId → code per round (cached players)
   ): Promise<RoundResult[]> {
     this.stopped = false;
     const results: RoundResult[] = [];
@@ -65,6 +67,20 @@ export class MultiPlayerIterationEngine {
               systemPrompt: '',
               userPrompt: '',
               rawResponse: '',
+              tokensUsed: { input: 0, output: 0 },
+            };
+          }
+
+          // Cached player: use preloaded code, skip LLM call
+          const cachedCodes = preloadedRounds?.get(player.id);
+          if (cachedCodes) {
+            const code = cachedCodes[round] ?? cachedCodes[cachedCodes.length - 1] ?? BASELINE_ZONE_SEEKER_CODE;
+            this.callbacks.onPlayerCached?.(round, player.id);
+            return {
+              code,
+              systemPrompt: '[cached]',
+              userPrompt: '[cached]',
+              rawResponse: '[cached]',
               tokensUsed: { input: 0, output: 0 },
             };
           }

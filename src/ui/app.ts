@@ -1,4 +1,4 @@
-import type { GameConfig, Player, RoundResult, TickRecord } from '../types';
+import type { CachedPlayerRun, GameConfig, Player, RoundResult, TickRecord } from '../types';
 import { DEFAULT_CONFIG } from '../constants';
 
 // ====== App State ======
@@ -19,6 +19,9 @@ export interface AppState {
   replayIndex: number;
   replayPlaying: boolean;
   replaySpeed: number;
+
+  // In-session player cache: key = `${seed}::${provider ?? 'baseline'}::${model}`
+  playerCache: Map<string, CachedPlayerRun>;
 }
 
 export function createAppState(): AppState {
@@ -33,6 +36,7 @@ export function createAppState(): AppState {
     replayIndex: 0,
     replayPlaying: false,
     replaySpeed: 1,
+    playerCache: new Map(),
   };
 }
 

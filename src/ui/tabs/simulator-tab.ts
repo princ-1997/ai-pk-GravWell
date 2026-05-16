@@ -159,6 +159,40 @@ export class SimulatorTab implements Tab {
     this.replayControls.updateStats(0, new Array(this.state.config.playerCount).fill(0), '-');
   }
 
+  // ====== Cache Helpers ======
+  private playerCacheKey(player: import('../../types').Player): string {
+    return `${this.state.config.seed}::${player.provider ?? 'baseline'}::${player.model}`;
+  }
+
+  private buildPreloadedRounds(players: import('../../types').Player[]): {
+    preloadedRounds: Map<number, string[]>;
+    cachedPlayerIds: Set<number>;
+  } {
+    const preloadedRounds = new Map<number, string[]>();
+    const cachedPlayerIds = new Set<number>();
+    for (const player of players) {
+      const cached = this.state.playerCache.get(this.playerCacheKey(player));
+      if (cached && cached.seed === this.state.config.seed && cached.rounds.length > 0) {
+        preloadedRounds.set(player.id, cached.rounds.map(r => r.code));
+        cachedPlayerIds.add(player.id);
+      }
+    }
+    return { preloadedRounds, cachedPlayerIds };
+  }
+
+  private saveToCache(players: import('../../types').Player[], results: RoundResult[]): void {
+    for (const player of players) {
+      const rounds = results.map(rr => {
+        const pd = rr.players.find(p => p.playerId === player.id);
+        return { code: pd?.code ?? '', score: pd?.score ?? 0 };
+      });
+      this.state.playerCache.set(this.playerCacheKey(player), {
+        seed: this.state.config.seed,
+        rounds,
+      });
+    }
+  }
+
   // ====== Benchmark (Multi-Player Iteration) ======
   private async startBenchmark(): Promise<void> {
     if (this.state.players.length === 0) {
@@ -185,13 +219,52 @@ export class SimulatorTab implements Tab {
     // Sort players by id for consistent ordering
     const players = [...this.state.players].sort((a, b) => a.id - b.id);
 
+    // Detect which players have cached results for the current seed
+    const { preloadedRounds, cachedPlayerIds } = this.buildPreloadedRounds(players);
+
+    if (cachedPlayerIds.size > 0) {
+      const cachedNames = players
+        .filter(p => cachedPlayerIds.has(p.id))
+        .map(p => `P${p.id + 1}`)
+        .join(', ');
+      this.replayControls.showStatus(
+        `${cachedNames} loaded from cache (seed ${this.state.config.seed}). Calling LLM for others...`,
+        'info'
+      );
+    }
+
+    // Per-player live status for progress display
+    const playerStatus = new Map<number, string>();
+    const updateProgress = (round: number, total: number): void => {
+      const statusStr = players.map(p => {
+        if (cachedPlayerIds.has(p.id)) return `P${p.id + 1}:[cache]`;
+        return `P${p.id + 1}:${playerStatus.get(p.id) ?? '...'}`;
+      }).join('  ');
+      this.codeEditor.showProgress(`R${round + 1}/${total} — ${statusStr}`);
+    };
+
     this.engine = new MultiPlayerIterationEngine({
       onRoundStart: (round, total) => {
-        this.codeEditor.showProgress(`Round ${round + 1}/${total} — calling LLMs...`);
+        players.forEach(p => {
+          if (!cachedPlayerIds.has(p.id)) playerStatus.set(p.id, 'calling...');
+        });
+        updateProgress(round, total);
         this.replayControls.showStatus(
           `<span class="spinner"></span> Round ${round + 1}/${total}`,
           'info'
         );
+      },
+      onPlayerLLMStart: (round, playerId) => {
+        playerStatus.set(playerId, 'gen...');
+        updateProgress(round, TOTAL_ROUNDS);
+      },
+      onPlayerLLMComplete: (round, playerId) => {
+        playerStatus.set(playerId, 'done');
+        updateProgress(round, TOTAL_ROUNDS);
+      },
+      onPlayerCached: (round, playerId) => {
+        playerStatus.set(playerId, '[cache]');
+        updateProgress(round, TOTAL_ROUNDS);
       },
       onRoundComplete: (result: RoundResult) => {
         this.state.roundResults.push(result);
@@ -232,6 +305,9 @@ export class SimulatorTab implements Tab {
           return;
         }
 
+        // Save all players' results to cache
+        this.saveToCache(players, results);
+
         // Find best round per player
         const summary = players.map(p => {
           let bestScore = -1;
@@ -243,7 +319,8 @@ export class SimulatorTab implements Tab {
               bestRound = rr.round;
             }
           }
-          return `P${p.id + 1}(${p.label}): best ${bestScore} @ R${bestRound + 1}`;
+          const tag = cachedPlayerIds.has(p.id) ? '[cache]' : '';
+          return `P${p.id + 1}${tag}: best ${bestScore} @ R${bestRound + 1}`;
         }).join(' | ');
 
         this.codeEditor.showProgress(`Done — ${results.length} rounds | ${summary}`);
@@ -258,11 +335,9 @@ export class SimulatorTab implements Tab {
           'error'
         );
       },
-      onPlayerLLMStart: () => {},
-      onPlayerLLMComplete: () => {},
     });
 
-    await this.engine.run(this.state.config, players);
+    await this.engine.run(this.state.config, players, preloadedRounds.size > 0 ? preloadedRounds : undefined);
   }
 
   private stopBenchmark(): void {

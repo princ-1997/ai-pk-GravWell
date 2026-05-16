@@ -165,6 +165,12 @@ export interface RoundResult {
   players: PlayerRoundData[];
 }
 
+// ====== In-Session Player Cache ======
+export interface CachedPlayerRun {
+  seed: number;
+  rounds: Array<{ code: string; score: number }>;
+}
+
 // ====== Leaderboard Persistence ======
 export interface LeaderboardRunRecord {
   id?: number;
