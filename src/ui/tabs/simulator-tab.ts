@@ -2,7 +2,7 @@ import type { Player, RoundResult } from '../../types';
 import type { AppState, Tab } from '../app';
 import { Simulation } from '../../core/simulation';
 import { GameRenderer } from '../../renderer/game-renderer';
-import { MultiPlayerIterationEngine } from '../../llm/multi-player-iteration-engine';
+import { MultiPlayerIterationEngine, TOTAL_ROUNDS } from '../../llm/multi-player-iteration-engine';
 import { ApiConfig } from '../components/api-config';
 import { CodeEditor } from '../components/code-editor';
 import { ReplayControls } from '../components/replay-controls';
@@ -111,6 +111,8 @@ export class SimulatorTab implements Tab {
   onActivate(): void {
     this.renderer.resize();
     this.renderCurrentState();
+    // Re-render score chart (canvas may have been zeroed while tab was hidden)
+    this.replayControls.refreshChart();
   }
 
   onDeactivate(): void {
@@ -201,7 +203,7 @@ export class SimulatorTab implements Tab {
           return `P${p.id + 1}:${pd?.score ?? 0}`;
         }).join(' ');
         this.codeEditor.showProgress(
-          `Round ${roundIdx + 1}/20 done | ${scoreStr}`
+          `Round ${roundIdx + 1}/${TOTAL_ROUNDS} done | ${scoreStr}`
         );
 
         // Update round slider to latest

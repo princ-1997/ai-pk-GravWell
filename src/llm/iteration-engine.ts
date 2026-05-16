@@ -2,7 +2,7 @@ import type { GameConfig } from '../types';
 import { Simulation } from '../core/simulation';
 import { callLLM, type ApiProvider } from './api';
 import { buildPrompt } from './prompt-builder';
-import { buildImprovementPrompt } from './improvement-prompt';
+import { buildImprovementPrompt, type RoundHistoryEntry } from './improvement-prompt';
 import { parseDecideCode } from './code-parser';
 import { createDecideFunction } from './sandbox';
 import { generateDiagnostic, type DiagnosticReport } from './diagnostic';
@@ -65,8 +65,7 @@ export class IterationEngine {
 
     let bestScore = -1;
     let noImprovementCount = 0;
-    let previousCode: string | null = null;
-    let previousDiagnostic: DiagnosticReport | null = null;
+    const history: RoundHistoryEntry[] = [];
 
     for (let round = 1; round <= this.config.maxRounds; round++) {
       if (this.stopped) break;
@@ -78,7 +77,7 @@ export class IterationEngine {
         let systemPrompt: string;
         let userPrompt: string;
 
-        if (round === 1 || !previousCode || !previousDiagnostic) {
+        if (round === 1 || history.length === 0) {
           const { system, user } = buildPrompt(
             gameConfig,
             arenaSimulation.arena.suns,
@@ -89,8 +88,7 @@ export class IterationEngine {
           userPrompt = user;
         } else {
           const { system, user } = buildImprovementPrompt(
-            previousCode,
-            previousDiagnostic,
+            history,
             round
           );
           systemPrompt = system;
@@ -124,8 +122,13 @@ export class IterationEngine {
         records.push(record);
         this.callbacks.onRoundComplete(record);
 
-        previousCode = code;
-        previousDiagnostic = diagnostic;
+        // Append to history for next round's improvement prompt
+        history.push({
+          round: round - 1, // 0-indexed for consistency
+          code,
+          score: diagnostic.positiveScore,
+          diagnostic,
+        });
 
         // Check stopping conditions
         if (diagnostic.positiveScore >= this.config.scoreThreshold) break;

@@ -37,33 +37,25 @@ Function contract:
 Mechanics:
 - ${config.arenaSize}x${config.arenaSize} continuous arena, ${config.totalTicks} ticks.
 - Current seed: ${config.seed}.
-- Controls: maxThrust=${config.maxThrust}, fuelStart=${config.fuelStart}, conditionMax=${config.conditionMax}, predictionTicks=${config.predictionTicks}.
+- Controls: maxThrust=${config.maxThrust}, fuelStart=${config.fuelStart}, predictionTicks=${config.predictionTicks}.
 - You control ${config.shipsPerPlayer} ships. This function is called once per ship per tick.
-- Ship state: ship has id, playerId, x, y, vx, vy, fuel, alive, condition.
+- Ship state: {id, playerId, x, y, vx, vy, fuel, alive}.
 - Each tick you may return any thrust vector (x,y); magnitude is capped to ${config.maxThrust}.
 - Fuel starts at ${config.fuelStart}. Thrust magnitude consumes that much fuel. No fuel means ballistic only.
 - Motion uses Verlet integration plus gravity from ${config.sunCount} seed-specific suns.
-- Integration: next = current + (current - previous) + gravity + thrust.
-- Velocity is implicit: vx=x-px and vy=y-py.
-- Gravity toward each sun: r=distance+${config.gravitySoftening}, accel=${config.gravityConstant}*mass/r^2 in the sun direction.
-- The scoring zone follows a deterministic closed (cosine/sine) curve, not random samples.
-- predictionTicks=${config.predictionTicks}: ctx.prediction contains the next ${config.predictionTicks} zone positions.
-- ctx.radius is the current scoring zone radius.
+- Scoring zone follows a deterministic path. ctx.prediction has the next ${config.predictionTicks} positions.
 - Scoring zone starts with radius ~${config.zoneBaseRadius}. Each alive ship earns 1 point per tick inside it.
-- Ships can fly outside the [0,${config.arenaSize}] x [0,${config.arenaSize}] arena without dying, but ships outside the arena cannot score.
+- Ships can fly outside the [0,${config.arenaSize}] x [0,${config.arenaSize}] arena without dying, but cannot score.
 - Crashing into a sun (entering its kill radius) destroys the ship permanently.
 - Treat sun clearance under about 5 units as high-risk because gravity becomes very strong.
 
 ctx object properties:
-- ctx.ship: {id, playerId, x, y, vx, vy, fuel, alive, condition}
+- ctx.ship: {id, playerId, x, y, vx, vy, fuel, alive}
 - ctx.otherShips: array of {id, playerId, x, y, vx, vy, fuel, alive}
 - ctx.suns: array of {id, x, y, mass, radius}
 - ctx.zone: {x, y, radius} - current scoring zone
 - ctx.prediction: array of {tick, x, y} - next ${config.predictionTicks} zone positions
-- ctx.radius: current zone radius (same as ctx.zone.radius)
 - ctx.tick: current tick number (0 to ${config.totalTicks - 1})
-- ctx.totalTicks: ${config.totalTicks}
-- ctx.seed: ${config.seed}
 
 ctx helper functions:
 - ctx.distanceTo(a, b): distance between two {x,y} points

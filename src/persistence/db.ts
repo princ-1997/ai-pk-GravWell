@@ -1,7 +1,7 @@
 import type { GameConfig } from '../types';
 
 const DB_NAME = 'gravwell-gpt';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Bumped: 5-round iteration replaces 20-round; old data incompatible
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -14,16 +14,19 @@ export function openDB(): Promise<IDBDatabase> {
     req.onupgradeneeded = () => {
       const db = req.result;
 
-      // Leaderboard runs: one record per model × seed × config
-      if (!db.objectStoreNames.contains('leaderboard-runs')) {
-        const store = db.createObjectStore('leaderboard-runs', {
-          keyPath: 'id',
-          autoIncrement: true,
-        });
-        store.createIndex('cacheKey', 'cacheKey', { unique: true });
-        store.createIndex('model', 'model', { unique: false });
-        store.createIndex('configHash', 'configHash', { unique: false });
+      // Clear old store if upgrading from v1
+      if (db.objectStoreNames.contains('leaderboard-runs')) {
+        db.deleteObjectStore('leaderboard-runs');
       }
+
+      // Leaderboard runs: one record per model × seed × config
+      const store = db.createObjectStore('leaderboard-runs', {
+        keyPath: 'id',
+        autoIncrement: true,
+      });
+      store.createIndex('cacheKey', 'cacheKey', { unique: true });
+      store.createIndex('model', 'model', { unique: false });
+      store.createIndex('configHash', 'configHash', { unique: false });
     };
 
     req.onsuccess = () => {

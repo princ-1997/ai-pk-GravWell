@@ -1,7 +1,7 @@
 import type { ApiProvider, GameConfig, LeaderboardRunRecord, RoundResult } from '../types';
 import { LEADERBOARD_SEEDS } from '../constants';
 import { PLAYER_COLORS } from '../constants';
-import { MultiPlayerIterationEngine } from '../llm/multi-player-iteration-engine';
+import { MultiPlayerIterationEngine, TOTAL_ROUNDS } from '../llm/multi-player-iteration-engine';
 import { computeConfigHash, makeCacheKey } from '../persistence/db';
 import { getCompletedCacheKeys, getRunByCacheKey, putRun } from '../persistence/leaderboard-store';
 
@@ -126,9 +126,9 @@ export class LeaderboardRunner {
 
         if (this.stopped) break;
 
-        // Only persist complete runs (all 20 rounds)
-        if (roundResults.length === 20 && !seedError) {
-          const finalScore = roundResults[19].players[0].score;
+        // Only persist complete runs (all rounds)
+        if (roundResults.length === TOTAL_ROUNDS && !seedError) {
+          const finalScore = roundResults[TOTAL_ROUNDS - 1].players[0].score;
 
           // Sum tokens across all rounds
           let seedInput = 0;

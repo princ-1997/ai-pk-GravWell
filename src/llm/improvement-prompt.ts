@@ -1,41 +1,95 @@
 import type { DiagnosticReport } from './diagnostic';
 
 /**
+ * One round's data for building the improvement prompt.
+ */
+export interface RoundHistoryEntry {
+  round: number;
+  code: string;
+  score: number;
+  diagnostic: DiagnosticReport;
+}
+
+/**
+ * Build a compact per-ship summary line.
+ */
+function shipLine(s: DiagnosticReport['perShip'][number]): string {
+  const status = s.alive
+    ? 'alive'
+    : `crashed@t${s.crashedTick}→${s.crashedInto}`;
+  return `${s.id}: ${status}, zone=${s.ticksInZone}, fuel=${s.fuelRemaining.toFixed(1)}`;
+}
+
+/**
  * Build the improvement prompt for subsequent iteration rounds.
- * Sends previous code + diagnostic to the LLM for targeted improvement.
+ * Includes compressed history of ALL previous rounds so the model can
+ * see the full evolution trajectory and learn from both successes and failures.
  */
 export function buildImprovementPrompt(
-  previousCode: string,
-  diagnostic: DiagnosticReport,
-  round: number
+  history: RoundHistoryEntry[],
+  currentRound: number
 ): { system: string; user: string } {
-  const maxPossible = diagnostic.totalTicks * 3; // 3 ships × totalTicks
+  const latest = history[history.length - 1];
+  const maxPossible = latest.diagnostic.totalTicks * 3; // 3 ships × totalTicks
+  const playerId = latest.diagnostic.perShip[0]?.id.substring(0, 2) || 'P1';
 
-  const perShipLines = diagnostic.perShip.map(s => {
-    const status = s.alive
-      ? `survived`
-      : `crashed tick ${s.crashedTick} into ${s.crashedInto}`;
-    return `  ${s.id}: ${status}, zone_ticks=${s.ticksInZone}, fuel_remaining=${s.fuelRemaining.toFixed(1)}`;
+  // Find best round
+  let bestIdx = 0;
+  for (let i = 1; i < history.length; i++) {
+    if (history[i].score > history[bestIdx].score) bestIdx = i;
+  }
+  const best = history[bestIdx];
+
+  // ── Section 1: Score progression table ──
+  const tableHeader = 'Round | Score | Alive | Crashed | ZoneTicks | FuelUsed';
+  const tableSep    = '------+-------+-------+---------+-----------+---------';
+  const tableRows = history.map(h => {
+    const d = h.diagnostic;
+    return `  R${h.round + 1}   |  ${String(h.score).padStart(4)} |   ${d.shipsAlive}   |    ${d.shipsCrashed}    |    ${String(d.totalTicksInZone).padStart(4)}   |  ${d.totalFuelUsed.toFixed(1)}`;
   }).join('\n');
 
-  const system = `You are improving a Gravwell GPT bot. This is improvement round ${round}.
-You are competing against other AI players in the same simulation. Your ships have IDs starting with "${diagnostic.perShip[0]?.id.substring(0, 2) || 'P1'}".
-Other ships visible in ctx.otherShips belong to opponents — avoid colliding but focus on maximizing YOUR zone time.
+  // ── Section 2: Per-round ship details (compact) ──
+  const perRoundShips = history.map(h => {
+    const lines = h.diagnostic.perShip.map(s => '    ' + shipLine(s)).join('\n');
+    return `  R${h.round + 1} (score=${h.score}):\n${lines}`;
+  }).join('\n');
 
-Previous score: ${diagnostic.positiveScore} / ~${maxPossible} possible
-${diagnostic.summary}
+  // ── Section 3: Trend analysis ──
+  const scores = history.map(h => h.score);
+  const trend = scores.length >= 2
+    ? (scores[scores.length - 1] > scores[scores.length - 2]
+        ? 'IMPROVING'
+        : scores[scores.length - 1] === scores[scores.length - 2]
+          ? 'FLAT'
+          : 'REGRESSING')
+    : 'FIRST_IMPROVEMENT';
 
-Per-ship results:
-${perShipLines}
+  // ── Build system prompt ──
+  const system = `You are improving a Gravwell GPT bot. This is round ${currentRound} of 5.
+Your ships have IDs starting with "${playerId}". Other ships belong to opponents.
+Max possible score: ~${maxPossible} (${latest.diagnostic.totalTicks} ticks × 3 ships).
 
-Fuel analysis:
-  total_fuel_used=${diagnostic.totalFuelUsed.toFixed(1)}, avg_per_ship=${diagnostic.avgFuelPerShip.toFixed(1)}
+═══ EVOLUTION HISTORY ═══
+${tableHeader}
+${tableSep}
+${tableRows}
 
-Focus on:
-- Ships that crashed: fix sun avoidance near those tick numbers
-- Ships with high fuel remaining: they were too conservative — thrust more toward zone
-- Ships with low zone ticks: they missed the zone — improve approach trajectory
-- Use gravity assists (let suns pull the ship in a useful direction) to save fuel
+Trend: ${trend} | Best so far: R${best.round + 1} with ${best.score} pts
+
+═══ PER-SHIP DETAILS (all rounds) ═══
+${perRoundShips}
+
+═══ LATEST ROUND ANALYSIS (R${latest.round + 1}) ═══
+${latest.diagnostic.summary}
+Fuel: total_used=${latest.diagnostic.totalFuelUsed.toFixed(1)}, avg_per_ship=${latest.diagnostic.avgFuelPerShip.toFixed(1)}
+
+═══ IMPROVEMENT GUIDELINES ═══
+- Crashed ships: fix sun avoidance near those tick numbers
+- High fuel remaining: too conservative — thrust more toward zone
+- Low zone ticks: missed the zone — improve approach trajectory
+- Use gravity assists (let suns pull in a useful direction) to save fuel
+- If score is REGRESSING, revert toward the best-scoring strategy and make smaller changes
+- If score is FLAT, try a different approach (e.g., different prediction lookahead, different fuel allocation)
 
 The function contract is unchanged:
 - function decide(ctx) receives the same ctx object
@@ -43,13 +97,34 @@ The function contract is unchanged:
 - No persistent state between calls
 - ctx.prediction has the next 20 zone positions for trajectory planning`;
 
-  const user = `Previous bot code (scored ${diagnostic.positiveScore} points):
+  // ── Build user prompt ──
+  // Include best code + latest code (if different)
+  let codeSection: string;
+  if (bestIdx === history.length - 1) {
+    // Best IS the latest
+    codeSection = `Your best & latest code (R${latest.round + 1}, score=${latest.score}):
 
 \`\`\`javascript
-${previousCode}
+${latest.code}
+\`\`\``;
+  } else {
+    codeSection = `Your BEST code so far (R${best.round + 1}, score=${best.score}):
+
+\`\`\`javascript
+${best.code}
 \`\`\`
 
-Write an improved decide(ctx) function that addresses the specific weaknesses shown above.
+Your LATEST code (R${latest.round + 1}, score=${latest.score}):
+
+\`\`\`javascript
+${latest.code}
+\`\`\``;
+  }
+
+  const user = `${codeSection}
+
+Write an improved decide(ctx) function. Consider the full evolution history above.
+${trend === 'REGRESSING' ? 'WARNING: Score dropped last round. Start from the best code and make targeted, small improvements.' : ''}
 Return ONLY the function code, no explanation.`;
 
   return { system, user };

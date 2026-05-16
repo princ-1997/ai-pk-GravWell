@@ -2,12 +2,12 @@ import type { GameConfig, Player, PlayerRoundData, RoundResult } from '../types'
 import { Simulation } from '../core/simulation';
 import { callLLM } from './api';
 import { buildPrompt } from './prompt-builder';
-import { buildImprovementPrompt } from './improvement-prompt';
+import { buildImprovementPrompt, type RoundHistoryEntry } from './improvement-prompt';
 import { parseDecideCode } from './code-parser';
 import { createDecideFunction, BASELINE_ZONE_SEEKER_CODE } from './sandbox';
 import { generatePlayerDiagnostic, type DiagnosticReport } from './diagnostic';
 
-const TOTAL_ROUNDS = 20;
+export const TOTAL_ROUNDS = 5;
 
 export interface MPIterationCallbacks {
   onRoundStart: (round: number, totalRounds: number) => void;
@@ -19,8 +19,7 @@ export interface MPIterationCallbacks {
 }
 
 interface PlayerState {
-  previousCode: string | null;
-  previousDiagnostic: DiagnosticReport | null;
+  history: RoundHistoryEntry[];
 }
 
 export class MultiPlayerIterationEngine {
@@ -46,10 +45,9 @@ export class MultiPlayerIterationEngine {
     const config = { ...gameConfig, playerCount: players.length };
     const arenaRef = new Simulation(config);
 
-    // Per-player state across rounds
+    // Per-player state across rounds — now stores full history
     const playerStates: PlayerState[] = players.map(() => ({
-      previousCode: null,
-      previousDiagnostic: null,
+      history: [],
     }));
 
     for (let round = 0; round < TOTAL_ROUNDS; round++) {
@@ -78,7 +76,8 @@ export class MultiPlayerIterationEngine {
             let systemPrompt: string;
             let userPrompt: string;
 
-            if (round === 0 || !ps.previousCode || !ps.previousDiagnostic) {
+            if (round === 0 || ps.history.length === 0) {
+              // First round: use initial prompt
               const prompts = buildPrompt(
                 config,
                 arenaRef.arena.suns,
@@ -88,9 +87,9 @@ export class MultiPlayerIterationEngine {
               systemPrompt = prompts.system;
               userPrompt = prompts.user;
             } else {
+              // Subsequent rounds: use improvement prompt with FULL history
               const prompts = buildImprovementPrompt(
-                ps.previousCode,
-                ps.previousDiagnostic,
+                ps.history,
                 round + 1
               );
               systemPrompt = prompts.system;
@@ -120,8 +119,8 @@ export class MultiPlayerIterationEngine {
             this.callbacks.onError(round, player.id, msg);
             this.callbacks.onPlayerLLMComplete(round, player.id);
 
-            // Fallback: reuse previous code, or baseline
-            const fallbackCode = playerStates[idx].previousCode || BASELINE_ZONE_SEEKER_CODE;
+            // Fallback: reuse best code from history, or baseline
+            const fallbackCode = this.getBestCode(playerStates[idx]) || BASELINE_ZONE_SEEKER_CODE;
             return {
               code: fallbackCode,
               systemPrompt: '',
@@ -146,9 +145,13 @@ export class MultiPlayerIterationEngine {
       const playerRoundData: PlayerRoundData[] = players.map((player, idx) => {
         const diagnostic = generatePlayerDiagnostic(simResult, config, idx);
 
-        // Update player state for next round
-        playerStates[idx].previousCode = llmResults[idx].code;
-        playerStates[idx].previousDiagnostic = diagnostic;
+        // Append to player's full history
+        playerStates[idx].history.push({
+          round,
+          code: llmResults[idx].code,
+          score: simResult.finalScores[idx],
+          diagnostic,
+        });
 
         return {
           playerId: player.id,
@@ -175,5 +178,15 @@ export class MultiPlayerIterationEngine {
 
     this.callbacks.onAllComplete(results);
     return results;
+  }
+
+  /** Get the best-scoring code from a player's history, or null if no history. */
+  private getBestCode(state: PlayerState): string | null {
+    if (state.history.length === 0) return null;
+    let best = state.history[0];
+    for (let i = 1; i < state.history.length; i++) {
+      if (state.history[i].score > best.score) best = state.history[i];
+    }
+    return best.code;
   }
 }
