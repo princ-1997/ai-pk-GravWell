@@ -96,7 +96,7 @@ src/
 │   ├── app.ts                 # AppState + App 类（tab 路由）
 │   ├── tabs/                  # 标签页：Simulator / LLM Materials / Full Runs
 │   └── components/            # UI 组件：玩家管理 / 代码查看器 / 回放控制
-├── modes/       # 游戏模式编排器（多种子批量运行等）
+├── modes/       # 游戏模式编排器（多种子批量运行、Elo + PVP 公平对战）
 └── utils/       # 向量数学工具
 ```
 
@@ -122,7 +122,7 @@ src/
 - [x] **Database 标签页** — 浏览历史基准测试 run、查看各轮代码、重跑自动命中缓存
 - [x] **per-seed 结果缓存跨 session 持久化** — 重启页面后缓存依然有效
 - [x] **排行榜 + 100 种子基准测试** — 种子热力图 (10×10)、进度条、CSV 导出、configHash 随轮次变化自动失效
-- [ ] PVP 模式 + Elo 排名
+- [x] **PVP 模式 + Elo 排名** — 从 LEADERBOARD 导入最佳代码，公平位置轮换（N 个 bot → N 轮），pairwise Elo 更新，回放带轮次切换器
 
 ## 灵感来源
 

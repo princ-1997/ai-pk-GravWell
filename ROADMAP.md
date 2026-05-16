@@ -274,27 +274,45 @@
 
 ---
 
-## Phase 8: PVP 模式 + Elo 排名 ⬜
+## Phase 8: PVP 模式 + Elo 排名 ✅ 已完成 (v1.0.0)
 
-**目标**: Bot 间 1v1 对战 + Elo rating。项目"终极形态"。
+**目标**: Bot 间对战 + Elo rating。**核心创新：公平位置轮换**消除起始坐标偏差。
 
-**依赖**: Phase 6（持久化）
+**依赖**: Phase 7（LEADERBOARD 持久化）
 
 ### 交付物
 
-1. **PVP 引擎**
-   - `src/modes/pvp.ts` — 2 人对战编排
-   - `src/modes/elo.ts` — Elo 计算（初始 1500, K=32）
-   - `src/modes/matchmaker.ts` — Round-robin / Swiss 配对
+1. **公平 PVP 引擎** (`src/modes/pvp.ts` ✅)
+   - `runFairMatch(bots, seed, config)` — N 个 bot 跑 N 轮位置轮换，每个 bot 在每个起始位置出场一次；最终分数取平均，消除位置偏差
+   - `getBestCodePerModel()` — 扫描所有 leaderboard-runs，返回每个模型全局最高 (seed, round) 代码
+   - Bot 代码仅从 LEADERBOARD 导入（需先跑过排行榜）
 
-2. **PVP 标签页** (`src/ui/tabs/pvp-tab.ts`)
-   - 手动对战 + 自动锦标赛模式
-   - Elo 排名表 + 对战历史
+2. **Elo 数学** (`src/modes/elo.ts` ✅)
+   - `applyMatchElo(elos, rank, avgScores)` — N 人 pairwise 更新（K=32，初始 1500）
+   - `tallyRecords(avgScores)` — W/L/D 统计
+   - `INITIAL_ELO` 常量从 `src/constants.ts` 导出
 
-3. **Web Worker 沙箱升级** (`src/llm/worker-sandbox.ts` 新建)
-   - `new Function()` → Web Worker，防阻塞主线程
-   - 单次 `decide()` 超时 5ms
-   - 对 PVP 公平性至关重要
+3. **PVP 标签页** (`src/ui/tabs/pvp-tab.ts` ✅)
+   - Bot 名册：Elo 排名表（W/L/D/Matches/来源）+ DEL/RESET ELO/CLEAR ALL
+   - Import 面板：一键从 LEADERBOARD 导入各模型最佳代码
+   - Match Setup：2–4 bot 复选 + 种子输入 + 随机骰子
+   - Match Results：逐轮分数表 + Avg + Elo Δ（含 🥇🥈🥉 标记）
+   - Match History：历史列表可点击 WATCH 加载回放
+   - Replay Viewer：Canvas + 轮次切换按钮 + tick 滑块 + 速度控制
+
+4. **PVP 持久化** (`src/persistence/pvp-store.ts` ✅)
+   - `pvp-bots` store：getAllBots, addBot, updateBot, deleteBot, clearAllBots, resetAllElo
+   - `pvp-matches` store：addMatch, getAllMatches, deleteMatch, clearAllMatches
+   - DB v5 迁移：保留所有旧 store 数据不变
+
+5. **Simulation arenaOverride** (`src/core/simulation.ts` ✅)
+   - 构造函数加入可选 `arenaOverride?: ArenaData`，向后兼容
+   - PVP 比赛通过注入预排列 arena 实现位置轮换
+
+**未实现（留 Phase 8.5）**:
+   - Web Worker 沙箱升级（`src/llm/worker-sandbox.ts`）
+   - 多种子比赛
+   - 自动锦标赛 / matchmaker
 
 **版本**: 1.0.0 🎉
 
@@ -322,7 +340,7 @@ Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 5.
 | 5.2 | 0.5.2 + 0.5.3 | ✅ Prompt 重设计 + 并行可见性 + per-seed 缓存 |
 | 6 | 0.6.0 | ✅ 数据持久化 + Database 标签页 |
 | 7 | 0.7.0 | ✅ 排行榜 + 100 种子 |
-| 8 | 1.0.0 | PVP + Elo = 功能完整 |
+| 8 | 1.0.0 | ✅ PVP + Elo + 公平位置轮换 |
 
 ## 风险提示
 

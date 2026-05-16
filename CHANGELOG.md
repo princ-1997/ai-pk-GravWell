@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.0] - 2026-05-16
+
+### Added
+- **PVP 标签页** (`src/ui/tabs/pvp-tab.ts`) — Bot 名册（Elo 表）、从 LEADERBOARD 导入最佳代码、Match Setup（选 2–4 个 bot + 种子）、单场比赛结果表（含逐轮分）、对战历史列表、Replay 查看器（含轮次切换器）
+- **公平位置轮换** (`src/modes/pvp.ts`) — `runFairMatch(bots, seed)`: N 个 bot 跑 N 轮，每轮 bot i 在物理位置槽 `(i+k)%N`，平均分消除起始位置偏差；`getBestCodePerModel()` 扫描所有 leaderboard 记录，返回每个模型的全局最高 (seed, round) 代码
+- **Elo 数学模块** (`src/modes/elo.ts`) — `applyMatchElo(elos, rank, avgScores)`: N 人 pairwise 计算（C(N,2) 对子），K=32，初始 Elo 1500；`tallyRecords(avgScores)`: W/L/D 统计；同步计算所有 delta 后一次性应用，避免顺序偏差
+- **PVP 持久化** (`src/persistence/pvp-store.ts`) — `pvp-bots` 和 `pvp-matches` store 的完整 CRUD，包括 `resetAllElo`、`clearAllBots`、`clearAllMatches`
+- **`PvpBot` / `PvpMatchRecord` / `MatchRunResult`** 类型 (`src/types.ts`)
+- **`INITIAL_ELO = 1500`** 导出到 `src/constants.ts`
+
+### Changed
+- **`Simulation` 构造函数** (`src/core/simulation.ts`) — 新增可选第二参数 `arenaOverride?: ArenaData`，向后兼容；PVP 比赛通过注入预排列的 arena 实现位置轮换，无需修改其它调用方
+- **IndexedDB 升级至 v5** (`src/persistence/db.ts`) — 新增 `pvp-bots`（index: model, createdAt）和 `pvp-matches`（index: timestamp）store；现有 `leaderboard-runs` / `simulator-runs` 数据完整保留
+
 ## [0.7.0] - 2026-05-16
 
 ### Added

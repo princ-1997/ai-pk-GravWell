@@ -40,18 +40,22 @@ src/
 │   │   ├── simulator-tab.ts      # Simulator: multi-player benchmark orchestration
 │   │   ├── llm-materials-tab.ts  # LLM Materials: per-player per-round prompt/response
 │   │   ├── database-tab.ts       # Database: browse/delete historical benchmark runs + code viewer
-│   │   └── full-runs-tab.ts      # Full Runs: multi-seed batch runner + chart
+│   │   ├── full-runs-tab.ts      # Full Runs: multi-seed batch runner + chart
+│   │   └── pvp-tab.ts            # PVP: roster + import + match setup + results + Elo replay
 │   └── components/
 │       ├── api-config.ts         # API config + ADD PLAYER + player roster
 │       ├── code-editor.ts        # PLAY/STOP benchmark + player/round code viewer
 │       └── replay-controls.ts    # Round slider + speed + score chart + results
 ├── modes/               # Game mode orchestrators
 │   ├── multi-seed-runner.ts # Batch execution across multiple seeds
-│   └── leaderboard-runner.ts # Multi-seed leaderboard with IndexedDB caching
+│   ├── leaderboard-runner.ts # Multi-seed leaderboard with IndexedDB caching
+│   ├── pvp.ts           # runFairMatch (N-bot position rotation) + getBestCodePerModel
+│   └── elo.ts           # applyMatchElo (pairwise N-way, K=32) + tallyRecords
 ├── persistence/         # IndexedDB storage layer
-│   ├── db.ts            # Database init, version migration (v3), config hashing
+│   ├── db.ts            # Database init, version migration (v5), config hashing
 │   ├── simulator-store.ts   # CRUD for simulator-runs (per-player benchmark history)
-│   └── leaderboard-store.ts # CRUD for leaderboard run records
+│   ├── leaderboard-store.ts # CRUD for leaderboard run records
+│   └── pvp-store.ts     # CRUD for pvp-bots + pvp-matches
 ├── renderer/            # Canvas rendering (consumes TickRecord[])
 │   ├── game-renderer.ts # Main render orchestrator, coordinate mapping
 │   ├── starfield.ts     # OffscreenCanvas cached starfield
@@ -80,6 +84,8 @@ src/
 7. **Full-history iteration** — The improvement prompt compresses all previous rounds into: (1) score progression table, (2) compact per-ship summaries, (3) IMPROVING/FLAT/REGRESSING trend detection, (4) best-scoring code + latest code. On regression, the model is warned to start from the best code. Error fallback uses the historical best code, not just the previous round.
 
 8. **Two-layer persistence** — `simulator-runs` (IndexedDB) stores per-player code+score history for every benchmark; loaded at boot to restore `playerCache` across sessions. `leaderboard-runs` stores full `RoundResult[]` for multi-seed leaderboard runs (includes TickRecord[]).
+
+9. **PVP fair match** — `src/modes/pvp.ts` runs N bots in N sub-simulations on the same seed. In sub-sim k, bot i is assigned to physical start position slot `(i+k)%N`, so each bot plays from every position exactly once. Scores are averaged, eliminating positional bias. Elo updates are pairwise for all C(N,2) pairs. Bots are imported from leaderboard records (best per-model code).
 
 ## Core Physics
 
