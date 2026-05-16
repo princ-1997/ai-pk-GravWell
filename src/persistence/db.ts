@@ -1,7 +1,7 @@
 import type { GameConfig } from '../types';
 
 const DB_NAME = 'gravwell-gpt';
-const DB_VERSION = 2; // Bumped: 5-round iteration replaces 20-round; old data incompatible
+const DB_VERSION = 3; // v3: add simulator-runs store for per-session benchmark persistence
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -11,22 +11,34 @@ export function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
 
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (event) => {
       const db = req.result;
+      const oldVersion = event.oldVersion;
 
-      // Clear old store if upgrading from v1
-      if (db.objectStoreNames.contains('leaderboard-runs')) {
-        db.deleteObjectStore('leaderboard-runs');
+      // v1→v2: recreate leaderboard-runs (schema change)
+      if (oldVersion < 2) {
+        if (db.objectStoreNames.contains('leaderboard-runs')) {
+          db.deleteObjectStore('leaderboard-runs');
+        }
+        const lbStore = db.createObjectStore('leaderboard-runs', {
+          keyPath: 'id',
+          autoIncrement: true,
+        });
+        lbStore.createIndex('cacheKey', 'cacheKey', { unique: true });
+        lbStore.createIndex('model', 'model', { unique: false });
+        lbStore.createIndex('configHash', 'configHash', { unique: false });
       }
 
-      // Leaderboard runs: one record per model × seed × config
-      const store = db.createObjectStore('leaderboard-runs', {
-        keyPath: 'id',
-        autoIncrement: true,
-      });
-      store.createIndex('cacheKey', 'cacheKey', { unique: true });
-      store.createIndex('model', 'model', { unique: false });
-      store.createIndex('configHash', 'configHash', { unique: false });
+      // v2→v3: add simulator-runs store
+      if (oldVersion < 3) {
+        const simStore = db.createObjectStore('simulator-runs', {
+          keyPath: 'id',
+          autoIncrement: true,
+        });
+        simStore.createIndex('cacheKey', 'cacheKey', { unique: false });
+        simStore.createIndex('model', 'model', { unique: false });
+        simStore.createIndex('timestamp', 'timestamp', { unique: false });
+      }
     };
 
     req.onsuccess = () => {
