@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.3] - 2026-05-16
+
+### Added
+- **并行 LLM 调用的逐玩家可见性** — 不再显示单一 "calling LLMs..."，而是 `P1:gen... P2:done P3:cache` 实时状态，修复之前看似只有 Player 1 在生成代码的体验
+- **跨基准 per-seed 玩家结果缓存** (`playerCache`) — 相同模型 + 种子重跑时直接复用之前的代码与分数，0 token 消耗，进度条标记 `[cache]`；缓存 key 为 `${seed}::${provider}::${model}`
+- **`MultiPlayerIterationEngine.preloadedRounds` 参数** — 命中缓存的玩家跳过 LLM 调用，通过 `onPlayerCached` 回调直接喂入历史代码
+- **`CachedPlayerRun` 类型** (`src/types.ts`) — `{ seed, rounds: Array<{code, score}> }`，承载每个玩家的按种子缓存数据
+
 ## [0.5.2] - 2026-05-16
 
 ### Changed

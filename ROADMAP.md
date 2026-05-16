@@ -192,11 +192,38 @@
 
 ---
 
+## Phase 5.2: Prompt 重设计 + 并行可见性与种子缓存 ✅ 已完成 (v0.5.2 + v0.5.3)
+
+**目标**: 提升 prompt 对 LLM 能力的区分度，同时优化多玩家并发体验与跨轮次复用效率。
+
+**依赖**: Phase 5.1
+
+### 交付物
+
+1. **Prompt 重设计** (`src/llm/prompt-builder.ts` 重写) — v0.5.2
+   - `predictionTicks` 从 20 降至 **5**：缩短预测窗口，强模型才能写出引力感知的轨迹规划
+   - 移除 `ctx.seed`：屏蔽 Lissajous 路径全局预算能力，bot 只能利用运行时信息
+   - 新增 `ctx.seek(target, power?)` helper：内置速度补偿，让 LLM 专注策略而非三角函数
+   - 新增多船分工提示：用 `ctx.ship.id` 区分 S1/S2/S3 角色
+   - 重写 User Prompt 为 4 个具体权衡问题
+
+2. **并行 LLM 调用可见性** (`src/ui/tabs/simulator-tab.ts`) — v0.5.3
+   - 每个玩家独立显示实时状态（`P1:gen... P2:done P3:cache`），替代单一 "calling LLMs..."
+
+3. **Per-seed 玩家结果缓存** (`src/ui/tabs/simulator-tab.ts`, `src/ui/app.ts`, `src/types.ts`) — v0.5.3
+   - `AppState.playerCache: Map<cacheKey, CachedPlayerRun>`（内存级，刷新后失效）
+   - 重跑相同模型 + 种子时，命中缓存的玩家跳过 LLM 调用，0 token 消耗
+   - `MultiPlayerIterationEngine.preloadedRounds` 参数承接缓存数据
+
+**版本**: 0.5.2 + 0.5.3
+
+---
+
 ## Phase 6: 数据持久化 ⬜
 
 **目标**: IndexedDB 持久化全部运行数据（排行榜已实现基础持久化）。
 
-**依赖**: Phase 5.1
+**依赖**: Phase 5.2
 
 ### 交付物
 
@@ -264,11 +291,11 @@
 ## 阶段依赖图
 
 ```
-Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 5.1 → Phase 6 → Phase 7
- (核心)    (渲染)    (LLM)    (迭代)    (模块化)  (多玩家)  (全历史迭代) (持久化)  (排行榜)
-                                                                  ↓
-                                                               Phase 8
-                                                               (PVP+Elo)
+Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 5.1 → Phase 5.2 → Phase 6 → Phase 7
+ (核心)    (渲染)    (LLM)    (迭代)    (模块化)  (多玩家)  (全历史迭代)  (Prompt+缓存)  (持久化)  (排行榜)
+                                                                                ↓
+                                                                             Phase 8
+                                                                             (PVP+Elo)
 ```
 
 ## 版本号规划
@@ -280,6 +307,7 @@ Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 5.
 | 4 | 0.4.0 | ✅ UI 重构 + 新标签页 |
 | 5 | 0.5.0 | ✅ 多玩家基准测试 |
 | 5.1 | 0.5.1 | ✅ 全历史迭代进化 + Bug 修复 |
+| 5.2 | 0.5.2 + 0.5.3 | ✅ Prompt 重设计 + 并行可见性 + per-seed 缓存 |
 | 6 | 0.6.0 | 数据持久化 |
 | 7 | 0.7.0 | 排行榜 + 100 种子 |
 | 8 | 1.0.0 | PVP + Elo = 功能完整 |
