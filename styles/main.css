@@ -1032,7 +1032,7 @@ select.field-input {
 .db-layout {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
   overflow: hidden;
   padding: 12px;
   gap: 10px;
@@ -1080,7 +1080,7 @@ select.field-input {
 
 /* Code modal */
 .db-code-modal {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.75);
   display: flex;
