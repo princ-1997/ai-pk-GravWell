@@ -125,11 +125,17 @@ See `ROADMAP.md` for the full phased development plan (Phase 0-8).
 - Keep commit messages concise and specific
 - Do NOT batch multiple feature points into one commit
 
+### Auto-Commit Rule
+**After all intents in the current conversation are fully implemented**, automatically run `git commit` — even for small bug fixes or minor features. Every conversation's output must be captured in git before ending. Use a descriptive commit message that covers all changes made in the session.
+
 ### Phase Completion Checklist
 After each Phase is verified working, you MUST:
-1. Update `README.md` — sync new feature descriptions, check off roadmap items
-2. Update `ROADMAP.md` — mark the completed Phase as ✅
-3. Update `CLAUDE.md` — sync project structure, new files, new commands
-4. Update `CHANGELOG.md` — record version number + added/changed/fixed
-5. Commit the 4 updated docs
-6. Run `git push` to push all changes to remote
+1. Run `git log <prev-phase-end-hash>..HEAD --oneline` to collect all commits since the last phase
+2. Update `CHANGELOG.md` — record version number + added/changed/fixed, derived from the git log above
+3. Update `README.md` — sync new feature descriptions, check off roadmap items
+4. Update `ROADMAP.md` — mark the completed Phase as ✅
+5. Update `CLAUDE.md` — sync project structure, new files, new commands
+6. Commit the 4 updated docs
+7. Run `git push` to push all changes to remote
+
+> The git log is the source of truth for what changed. Never update docs from memory alone — always read the log first.
