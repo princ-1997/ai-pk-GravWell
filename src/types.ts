@@ -171,6 +171,19 @@ export interface CachedPlayerRun {
   rounds: Array<{ code: string; score: number }>;
 }
 
+// ====== Simulator Run Persistence ======
+export interface SimulatorRunRecord {
+  id?: number;
+  cacheKey: string;               // `${seed}::${provider}::${model}`
+  timestamp: number;
+  seed: number;
+  provider: string;               // 'baseline' for built-in bot
+  model: string;
+  rounds: Array<{ code: string; score: number }>;
+  bestScore: number;
+  bestRound: number;              // 1-indexed
+}
+
 // ====== Leaderboard Persistence ======
 export interface LeaderboardRunRecord {
   id?: number;
