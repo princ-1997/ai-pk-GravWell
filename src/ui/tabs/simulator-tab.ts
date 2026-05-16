@@ -6,7 +6,7 @@ import { MultiPlayerIterationEngine, TOTAL_ROUNDS } from '../../llm/multi-player
 import { ApiConfig } from '../components/api-config';
 import { CodeEditor } from '../components/code-editor';
 import { ReplayControls } from '../components/replay-controls';
-import { putSimulatorRun, getLatestRunsByCacheKey } from '../../persistence/simulator-store';
+import { putSimulatorRun, getLatestRunsByCacheKey, deleteAllSimulatorRuns } from '../../persistence/simulator-store';
 
 export class SimulatorTab implements Tab {
   el: HTMLElement;
@@ -70,6 +70,9 @@ export class SimulatorTab implements Tab {
         <label class="field-label">SEED</label>
         <input type="number" class="field-input" id="seed-input" value="${this.state.config.seed}">
       </div>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn btn-outline btn-sm" id="clear-cache-btn">CLEAR CACHE</button>
+      </div>
     `;
     rightPanel.appendChild(gameConfigEl);
 
@@ -78,6 +81,10 @@ export class SimulatorTab implements Tab {
       this.state.config = { ...this.state.config, seed };
       this.initializeSimulation();
       this.el.querySelector('#stat-seed')!.textContent = String(seed);
+    });
+
+    gameConfigEl.querySelector('#clear-cache-btn')!.addEventListener('click', () => {
+      this.clearCache();
     });
 
     // 3. Code Editor (PLAY / STOP / LOAD BASELINE + code view)
@@ -174,7 +181,7 @@ export class SimulatorTab implements Tab {
     const cachedPlayerIds = new Set<number>();
     for (const player of players) {
       const cached = this.state.playerCache.get(this.playerCacheKey(player));
-      if (cached && cached.seed === this.state.config.seed && cached.rounds.length > 0) {
+      if (cached && cached.seed === this.state.config.seed && cached.rounds.length >= TOTAL_ROUNDS) {
         preloadedRounds.set(player.id, cached.rounds.map(r => r.code));
         cachedPlayerIds.add(player.id);
       }
@@ -499,6 +506,17 @@ export class SimulatorTab implements Tab {
       cancelAnimationFrame(this.replayAnimId);
       this.replayAnimId = 0;
     }
+  }
+
+  // ====== Cache ======
+  private async clearCache(): Promise<void> {
+    this.state.playerCache.clear();
+    try {
+      await deleteAllSimulatorRuns();
+    } catch {
+      // Non-fatal
+    }
+    this.replayControls.showStatus('Cache cleared. Next run will call LLM fresh.', 'success');
   }
 
   // ====== Helpers ======
