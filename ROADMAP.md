@@ -122,7 +122,7 @@
 
 ## Phase 5: 多玩家基准测试重构 ✅ 已完成 (v0.5.0)
 
-**目标**: 将游戏从单玩家工具重构为多玩家 LLM 学习能力基准测试。核心流程：添加模型 → 20 轮迭代竞技 → 观察学习曲线。
+**目标**: 将游戏从单玩家工具重构为多玩家 LLM 学习能力基准测试。核心流程：添加模型 → 5 轮迭代竞技 → 观察学习曲线。
 
 **依赖**: Phase 4
 
@@ -136,17 +136,18 @@
    - LOAD BASELINE 添加内置基线机器人作为参照
 
 2. **多玩家迭代引擎** (`src/llm/multi-player-iteration-engine.ts` 新建)
-   - 固定 20 轮，无提前停止（学习曲线才是核心指标）
+   - 固定 5 轮，每轮提供**完整进化历史**（非仅上一轮）
    - 每轮：所有玩家并行调用 LLM → 共享模拟 → 逐玩家诊断
+   - 改进提示包含：分数趋势表、逐船详情、趋势检测（IMPROVING/FLAT/REGRESSING）、最佳代码 + 最新代码
    - 基线玩家跳过 LLM 调用，使用静态代码
-   - 逐玩家错误处理：LLM 失败时回退到上一轮代码
-   - 完整存储每轮 `TickRecord[]`（~4.4MB/20 轮/4 玩家，内存可承受）
+   - 逐玩家错误处理：LLM 失败时回退到**历史最佳代码**（非仅上一轮）
+   - 完整存储每轮 `TickRecord[]`
 
 3. **UI 流程重设计**
    - 删除 GENERATE BOT、ITERATE、RUN TRIAL 按钮
-   - 新增 PLAY 按钮启动 20 轮基准测试
+   - 新增 PLAY 按钮启动 5 轮基准测试
    - 代码框变为只读查看器，通过玩家+轮次选择器浏览
-   - 轮次滑块（1-20）+ 速度滑块实现逐轮回放
+   - 轮次滑块（1-5）+ 速度滑块实现逐轮回放
    - 分数折线图（Canvas）实时展示各玩家学习曲线
 
 4. **逐玩家诊断** (`src/llm/diagnostic.ts` 扩展)
@@ -157,23 +158,51 @@
    - 新增玩家选择器 + 轮次选择器
    - 支持按玩家 × 轮次浏览完整 prompt/response/diagnostic
 
-**版本**: 0.5.0
+**版本**: 0.5.0 → 0.5.1（迭代逻辑重构）
 
 ---
 
-## Phase 6: 数据持久化 ⬜
+## Phase 5.1: 迭代逻辑重构 + 全历史进化 ✅ 已完成 (v0.5.1)
 
-**目标**: IndexedDB 持久化全部运行数据。
+**目标**: 将迭代从"仅看上一轮"重构为"看完整进化历史"，并将轮次从 20 降至 5（减少运行时间，提高每轮信息密度）。
 
 **依赖**: Phase 5
 
 ### 交付物
 
-1. **存储层** (`src/storage/` 新建)
-   - `db.ts` — IndexedDB 初始化 + 版本迁移
-   - `bot-store.ts` — Bot 代码存储（模型名、代码、来源）
-   - `run-store.ts` — 运行记录（种子、得分、诊断、迭代历史）
-   - Schema: `bots`, `runs`, `iterations` object stores
+1. **全历史改进提示** (`src/llm/improvement-prompt.ts` 重写)
+   - 新增 `RoundHistoryEntry` 接口，存储每轮的代码、分数、诊断
+   - 压缩历史格式：分数趋势表 + 逐船单行摘要 + 趋势检测（IMPROVING/FLAT/REGRESSING）
+   - 用户提示包含最佳代码 + 最新代码（若不同），回退提示在 REGRESSING 时触发
+   - `TOTAL_ROUNDS = 5`，导出供其他模块使用
+
+2. **引擎重构** (`src/llm/multi-player-iteration-engine.ts`)
+   - `PlayerState.history: RoundHistoryEntry[]` 替代旧的 `previousCode` / `previousDiagnostic`
+   - 每轮将完整历史传给改进提示
+   - 错误回退使用历史最佳代码（非仅上一轮）
+
+3. **数据库重置** (`src/persistence/db.ts`)
+   - DB_VERSION 从 1 升至 2，清除不兼容的 20 轮缓存数据
+
+4. **Bug 修复：分数折线图在切换标签页后消失**
+   - 原因：隐藏标签页时 `canvas.clientWidth` 为 0，`renderScoreChart()` 将画布设为 0×0
+   - 修复：跳过零尺寸渲染 + 缓存最新数据 + `onActivate()` 时重绘
+
+**版本**: 0.5.1
+
+---
+
+## Phase 6: 数据持久化 ⬜
+
+**目标**: IndexedDB 持久化全部运行数据（排行榜已实现基础持久化）。
+
+**依赖**: Phase 5.1
+
+### 交付物
+
+1. **存储层扩展**
+   - Bot 代码存储（模型名、代码、来源）
+   - 运行记录（种子、得分、诊断、迭代历史）
    - TickRecord[] 按需存储（仅最佳 run），避免数据膨胀
    - Database 标签页：浏览历史 bot + run，加载历史 bot
 
@@ -235,8 +264,8 @@
 ## 阶段依赖图
 
 ```
-Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7
- (核心)    (渲染)    (LLM)    (迭代)    (模块化)  (多玩家)   (持久化)  (排行榜)
+Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 5.1 → Phase 6 → Phase 7
+ (核心)    (渲染)    (LLM)    (迭代)    (模块化)  (多玩家)  (全历史迭代) (持久化)  (排行榜)
                                                                   ↓
                                                                Phase 8
                                                                (PVP+Elo)
@@ -250,6 +279,7 @@ Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 
 | 3 | 0.3.0 | ✅ 迭代学习系统 |
 | 4 | 0.4.0 | ✅ UI 重构 + 新标签页 |
 | 5 | 0.5.0 | ✅ 多玩家基准测试 |
+| 5.1 | 0.5.1 | ✅ 全历史迭代进化 + Bug 修复 |
 | 6 | 0.6.0 | 数据持久化 |
 | 7 | 0.7.0 | 排行榜 + 100 种子 |
 | 8 | 1.0.0 | PVP + Elo = 功能完整 |

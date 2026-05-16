@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.1] - 2026-05-16
+
+### Changed
+- **迭代轮次从 20 降至 5** — 减少运行时间，提高每轮信息密度
+- **全历史改进提示** (`src/llm/improvement-prompt.ts` 重写) — 每轮改进提示包含完整进化历史：
+  - 分数趋势表（所有轮次一览）
+  - 逐船单行摘要（每轮每艘船的存活/坠毁/区域时间/燃料）
+  - 趋势检测（IMPROVING / FLAT / REGRESSING）+ 针对性指导
+  - 最佳代码 + 最新代码（若不同时分别展示）
+  - 回退警告（REGRESSING 时提示从最佳代码出发做小改动）
+- **错误回退策略** — LLM 调用失败时回退到**历史最佳代码**（非仅上一轮）
+- **`TOTAL_ROUNDS` 导出** — 消除所有硬编码的 `20`，统一使用常量
+- **IndexedDB 升级至 v2** — 清除旧 20 轮缓存数据，与新 5 轮格式兼容
+
+### Fixed
+- **分数折线图在切换标签页后消失** — 隐藏标签页时 `canvas.clientWidth` 为 0，`renderScoreChart()` 将画布设为 0×0 导致图表永久丢失。修复：跳过零尺寸渲染 + 缓存最新数据 + `onActivate()` 时从缓存重绘
+- **Canvas renderInitial 零尺寸保护** — 避免标签页未展示时渲染出错
+
 ## [0.5.0] - 2026-05-16
 
 ### Added
@@ -7,8 +25,8 @@
 - **ADD PLAYER** — 替代原 SAVE 按钮，注册 AI 模型为玩家并分配颜色（蓝/红/绿/黄），最多 4 个
 - **玩家名册** — 显示已注册玩家的颜色、模型名、Provider，支持删除，持久化到 localStorage
 - **防重复机制** — 相同 Provider + Model 组合不会重复添加
-- **MultiPlayerIterationEngine** (`src/llm/multi-player-iteration-engine.ts`) — 20 轮固定迭代，每轮所有玩家并行调用 LLM → 共享模拟 → 逐玩家诊断反馈
-- **逐轮回放** — 轮次滑块（Round 1-20）选择任意轮次查看轨迹，默认显示第一帧，点击播放才动
+- **MultiPlayerIterationEngine** (`src/llm/multi-player-iteration-engine.ts`) — 固定迭代（v0.5.1 改为 5 轮 + 全历史），每轮所有玩家并行调用 LLM → 共享模拟 → 逐玩家诊断反馈
+- **逐轮回放** — 轮次滑块选择任意轮次查看轨迹，默认显示第一帧，点击播放才动
 - **分数折线图** — Canvas 实时绘制各玩家的学习曲线（X=轮次，Y=分数），每轮完成后更新
 - **逐玩家诊断** (`generatePlayerDiagnostic`) — 按 playerId 过滤船只统计，为每个模型生成独立的改进反馈
 - **改进提示词多玩家意识** — 告知 LLM 正在与其他 AI 竞争，提供己方船只 ID 前缀
@@ -20,7 +38,7 @@
 
 ### Removed
 - GENERATE BOT 按钮（被 PLAY 基准测试取代）
-- ITERATE 按钮 + 轮次选择器（固定 20 轮）
+- ITERATE 按钮 + 轮次选择器（v0.5.1 改为 5 轮）
 - RUN TRIAL 按钮（模拟在迭代中自动执行）
 - `iteration-panel.ts` 组件（功能合并到 code-editor）
 - AppState 中的 `currentBotCode`, `currentDecide`, `diagnostic`, `iterationRecords`, `iterationRunning`, `llmMaterials` 字段

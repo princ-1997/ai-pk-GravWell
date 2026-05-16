@@ -28,8 +28,8 @@ src/
 ├── llm/                 # LLM integration
 │   ├── api.ts           # OpenRouter / Anthropic / OpenAI / DeepSeek API client
 │   ├── prompt-builder.ts # Builds the system+user prompt with game rules
-│   ├── improvement-prompt.ts # Improvement prompt for iteration rounds 2+
-│   ├── multi-player-iteration-engine.ts # 20-round multi-player benchmark engine
+│   ├── improvement-prompt.ts # Full-history improvement prompt with trend analysis
+│   ├── multi-player-iteration-engine.ts # 5-round multi-player benchmark engine
 │   ├── iteration-engine.ts   # Legacy single-player iteration engine
 │   ├── code-parser.ts   # Extracts decide() from LLM response text
 │   ├── sandbox.ts       # new Function() sandbox + baseline bot code
@@ -45,7 +45,11 @@ src/
 │       ├── code-editor.ts        # PLAY/STOP benchmark + player/round code viewer
 │       └── replay-controls.ts    # Round slider + speed + score chart + results
 ├── modes/               # Game mode orchestrators
-│   └── multi-seed-runner.ts # Batch execution across multiple seeds
+│   ├── multi-seed-runner.ts # Batch execution across multiple seeds
+│   └── leaderboard-runner.ts # Multi-seed leaderboard with IndexedDB caching
+├── persistence/         # IndexedDB storage layer
+│   ├── db.ts            # Database init, version migration, config hashing
+│   └── leaderboard-store.ts # CRUD for leaderboard run records
 ├── renderer/            # Canvas rendering (consumes TickRecord[])
 │   ├── game-renderer.ts # Main render orchestrator, coordinate mapping
 │   ├── starfield.ts     # OffscreenCanvas cached starfield
@@ -65,11 +69,13 @@ src/
 
 3. **LLM code runs via `new Function()`** — Not a Web Worker yet (MVP). The ctx object is a snapshot copy so decide() can't mutate game state. Errors are caught and return `{x:0, y:0}`.
 
-4. **Replay from stored data** — Replays use `TickRecord[]` stored after simulation, not re-simulation. Each of the 20 iteration rounds stores its full `TickRecord[]` for per-round replay.
+4. **Replay from stored data** — Replays use `TickRecord[]` stored after simulation, not re-simulation. Each of the 5 iteration rounds stores its full `TickRecord[]` for per-round replay.
 
 5. **Modular UI** — `main.ts` is bootstrap only. Each tab is a class implementing `Tab` interface with `onActivate()`/`onDeactivate()` lifecycle. Components are pure UI (no business logic) with callback pattern. `AppState` is a plain mutable object passed by reference — no reactivity framework.
 
-6. **Multi-player benchmark flow** — Users add AI models as "Players" via ADD PLAYER (up to 4). Clicking PLAY runs 20 rounds: each round all players call LLM in parallel, then compete in the same simulation. Per-player diagnostics feed back to each model's improvement prompt. A round slider lets users replay any round's trajectory. Score progression chart shows learning curves.
+6. **Multi-player benchmark flow** — Users add AI models as "Players" via ADD PLAYER (up to 4). Clicking PLAY runs 5 rounds: each round all players call LLM in parallel, then compete in the same simulation. Each model's improvement prompt includes the **full evolution history** (score progression table, per-ship details, trend detection, best + latest code). A round slider lets users replay any round's trajectory. Score progression chart shows learning curves.
+
+7. **Full-history iteration** — The improvement prompt compresses all previous rounds into: (1) score progression table, (2) compact per-ship summaries, (3) IMPROVING/FLAT/REGRESSING trend detection, (4) best-scoring code + latest code. On regression, the model is warned to start from the best code. Error fallback uses the historical best code, not just the previous round.
 
 ## Core Physics
 
@@ -105,12 +111,12 @@ Edit `src/llm/prompt-builder.ts`. The prompt is a template literal that includes
 
 ## Not Yet Implemented (Planned)
 
-- IndexedDB persistence for benchmark results
+- Full IndexedDB persistence for all run data (leaderboard caching already done)
 - Leaderboard with 100-seed averaging
 - PVP mode with Elo ratings
 - Web Worker sandbox for decide() execution
 
-See `ROADMAP.md` for the full phased development plan (Phase 0-7).
+See `ROADMAP.md` for the full phased development plan (Phase 0-8).
 
 ## Development Workflow
 
